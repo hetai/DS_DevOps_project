@@ -1,0 +1,50 @@
+# Ignore everything by default
+*
+
+# Allow necessary files
+!app/backend/openscenario-api-service/**
+!app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/applications/openScenarioReader/**
+!app/frontend/scenario-tool-suite/**
+!docker-compose*.yml
+!Dockerfile*
+!requirements.txt
+!package*.json
+
+# Specific files to include from the root
+!.gitignore
+!.dockerignore
+!README.md
+!LICENSE
+
+# Always ignore these files and directories
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.git
+**/.github
+**/.vscode
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store
+**/venv
+**/env
+**/.env
+**/.env.*
+!**/.env.example
+
+# Ignore development and test files
+**/tests
+**/test
+**/*.test.*
+**/*.spec.*
+**/coverage
+
+# Ignore build artifacts
+**/dist
+**/build
+**/*.egg-info
+**/*.egg
+
+# Allow validator files in the backend
+!app/backend/openscenario-api-service/validator/
