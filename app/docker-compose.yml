@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend/scenario-tool-suite
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/scenario-tool-suite:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ./backend/openscenario-api-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - VALIDATOR_PATH=/app/OpenSCENARIOValidator
+    volumes:
+      # Mount the validator executable
+      - ./path/to/OpenSCENARIO/validator:/app/OpenSCENARIOValidator
+      # Mount the directory containing your OpenSCENARIO files if needed
+      # - ./path/to/scenarios:/data/scenarios
