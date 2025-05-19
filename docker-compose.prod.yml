@@ -1,50 +1,62 @@
 version: '3.8'
 
 services:
-  web:
+  frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.prod
-    expose:
-      - 80
-    environment:
-      - DATABASE_URL=postgresql://fastapi_traefik_prod:fastapi_traefik_prod@db:5432/fastapi_traefik_prod
-    depends_on:
-      - db
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.fastapi.rule=Host(`fastapi-traefik.your-domain.com`)"
-      - "traefik.http.routers.fastapi.tls=true"
-      - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
-  db:
-    image: postgres:15-alpine
-    volumes:
-      - postgres_data_prod:/var/lib/postgresql/data/
-    expose:
-      - 5432
-    environment:
-      - POSTGRES_USER=fastapi_traefik_prod
-      - POSTGRES_PASSWORD=fastapi_traefik_prod
-      - POSTGRES_DB=fastapi_traefik_prod
-  traefik:
-    build:
-      context: .
-      dockerfile: Dockerfile.traefik
+      context: ./app/frontend/scenario-tool-suite
+      dockerfile: Dockerfile
+    container_name: openscenario-frontend
+    restart: unless-stopped
     ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./traefik-public-certificates:/certificates"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`dashboard-fastapi-traefik.your-domain.com`) && (PathPrefix(`/`)"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=testuser:$$apr1$$jIKW.bdS$$eKXe4Lxjgy/rH65wP1iQe1"
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - openscenario-network
+    environment:
+      - VITE_API_URL=/api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./app/backend/openscenario-api-service/Dockerfile
+    container_name: openscenario-backend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    environment:
+      - VALIDATOR_PATH=/app/OpenSCENARIOValidator
+      - LD_LIBRARY_PATH=/usr/local/lib
+      - PORT=8080
+      - LOG_LEVEL=INFO
+      - MAX_UPLOAD_SIZE=10485760  # 10MB
+    command: >-
+      /bin/sh -c '
+        echo "Current directory: " &&
+        pwd &&
+        echo "Files in /app:" &&
+        ls -la /app &&
+        echo "Python path:" &&
+        python -c "import sys; print(sys.path)" &&
+        python -m uvicorn main:app --host 0.0.0.0 --port 8080 --workers 1
+      '
+    networks:
+      - openscenario-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  openscenario-network:
+    driver: bridge
 
 volumes:
-  postgres_data_prod:
-  traefik-public-certificates:
+  validator-data:
