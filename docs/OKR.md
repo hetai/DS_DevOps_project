@@ -6,16 +6,16 @@ Develop and deploy a cloud-native, intelligent system on AWS that leverages RAG 
 ## Key Results
 
 ### KR1: MVP Deliverables
-- [ ] Basic web interface for natural language input
+- [x] Basic web interface for natural language input
 - [ ] Core scenario generation engine with RAG capabilities
 - [ ] Integration with one NCAP scenario
-- [ ] Custom player integration for scenario visualization and validation
-- [ ] Initial documentation and setup guide
+- [x] Custom player integration for scenario visualization and validation
+- [x] Initial documentation and setup guide
 
 ### KR2: AWS Cloud Infrastructure
 - [ ] Design and implement scalable AWS architecture using ECS/EKS for container orchestration
 - [ ] Set up secure VPC, IAM roles, and network configurations following AWS best practices
-- [ ] Configure custom player in a containerized environment for cloud deployment
+- [x] Configure custom player in a containerized environment for cloud deployment
 
 ### KR3: CI/CD Pipeline Implementation
 - [ ] Set up end-to-end CI/CD pipeline using AWS CodePipeline/CodeBuild or GitHub Actions
