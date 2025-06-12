@@ -2,6 +2,20 @@
 app/backend/openscenario-api-service/validator/*
 !app/backend/openscenario-api-service/validator/.gitkeep
 
+# Large files that exceed GitHub limits
+app/backend/openscenario.api.test/generator/de.rac.openscenario.generator/src/main/resources/input/OpenSCENARIO1_2_Patched.eapx
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/openScenarioLib/libOpenScenarioLib.so.*
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/applications/openScenarioTester/libOpenScenarioLib.so.*
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/applications/openScenarioReader/libOpenScenarioLib.so.*
+app/frontend/scenario-tool-suite/node_modules/@swc/core-linux-x64-musl/swc.linux-x64-musl.node
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+terraform/.terraform/
+
 # Python
 __pycache__/
 *.py[cod]
