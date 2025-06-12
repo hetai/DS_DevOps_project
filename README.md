@@ -163,16 +163,6 @@ The frontend development server will be available at http://localhost:3000
 ```
 
 ## AWS Architecture Diagram
-
-The AWS architecture diagram can be generated automatically using **CloudSkiff’s Diagrams (formerly Terraformer)** combined with **Diagrams.net**:
-
-1. **Terraformer** extracts resource information from Terraform state or code and outputs a graphical structure in JSON.
-2. **Diagrams.net** imports this JSON to render an accurate AWS architecture diagram that stays up-to-date with your infrastructure.
-
-Refer to the `docs` folder for instructions on running the toolchain.
-
-## AWS Architecture
-
 Below is the current AWS architecture for the OpenSCENARIO deployment:
 
 ![AWS Architecture](docs/aws_architecture.png)

@@ -1,0 +1,300 @@
+name: OpenScenarioCpp
+on: 
+    push:
+        branches:
+        - master
+        
+    pull_request:
+        branches:
+        - master
+        - dev
+        
+    workflow_dispatch:
+        
+jobs:
+  LinuxSharedDebugBuild:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: update system
+      run:  sudo apt-get update
+
+    - name: install uuid-dev package
+      run:  sudo apt-get install uuid-dev
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="Linux-shared-debug"
+      
+    - name: build solution Debug
+      shell: bash
+      run: |
+        cd cpp
+        cmake --build --preset="Build-Linux-shared-debug"
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgDebugMakeShared/applications/openScenarioTester
+        chmod a+x *
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+        ./OpenScenarioTester && (exit 0) 
+
+    
+  LinuxSharedReleaseBuild:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: update system
+      run:  sudo apt-get update
+
+    - name: install uuid-dev package
+      run:  sudo apt-get install uuid-dev
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="Linux-shared-release"
+      
+    - name: build solution Release
+      shell: bash
+      run: |
+        cd cpp
+        cmake --build --preset="Build-Linux-shared-release"
+    
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgReleaseMakeShared/applications/openScenarioTester
+        chmod a+x *
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+        ./OpenScenarioTester && (exit 0) 
+
+
+  LinuxStaticDebugBuild:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: update system
+      run:  sudo apt-get update
+
+    - name: install uuid-dev package
+      run:  sudo apt-get install uuid-dev
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="Linux-static-debug"
+      
+    - name: build solution Debug
+      shell: bash
+      run: |
+        cd cpp
+        cmake --build --preset="Build-Linux-static-debug"
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgDebugMakeStatic/applications/openScenarioTester
+        chmod a+x *
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+        ./OpenScenarioTester && (exit 0) 
+
+
+  LinuxStaticReleaseBuild:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: update system
+      run:  sudo apt-get update
+
+    - name: install uuid-dev package
+      run:  sudo apt-get install uuid-dev
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="Linux-static-release"
+      
+    - name: build solution Release
+      shell: bash
+      run: |
+        cd cpp
+        cmake --build --preset="Build-Linux-static-release"
+    
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgReleaseMakeStatic/applications/openScenarioTester
+        chmod a+x *
+        export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win32SharedDebugBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="VS2022-Win32-shared"
+      
+    - name: build solution Debug
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-Win32-shared" --config Debug
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022Win32Shared/applications/openScenarioTester/Debug
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win32SharedReleaseBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="VS2022-Win32-shared"
+      
+    - name: build solution Release
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-Win32-shared" --config Release
+
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022Win32Shared/applications/openScenarioTester/Release
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win64SharedDebugBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="VS2022-x64-shared"
+      
+    - name: build solution Debug
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-x64-shared" --config Debug
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022x64Shared/applications/openScenarioTester/Debug
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win64SharedReleaseBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="VS2022-x64-shared"
+      
+    - name: build solution Release
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-x64-shared" --config Release
+
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022x64Shared/applications/openScenarioTester/Release
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win32StaticDebugBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="VS2022-Win32-static"
+      
+    - name: build solution Debug
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-Win32-static" --config Debug
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022Win32Static/applications/openScenarioTester/Debug
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win32StaticReleaseBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="VS2022-Win32-static"
+      
+    - name: build solution Release
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-Win32-static" --config Release
+
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022Win32Static/applications/openScenarioTester/Release
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win64StaticDebugBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Debug
+      run: cmake -S ./cpp --preset="VS2022-x64-static"
+      
+    - name: build solution Debug
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-x64-static" --config Debug
+    
+    - name: test Debug
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022x64Static/applications/openScenarioTester/Debug
+        ./OpenScenarioTester && (exit 0) 
+
+
+  Win64StaticReleaseBuild:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: cmake generate solution Release
+      run: cmake -S ./cpp --preset="VS2022-x64-static"
+      
+    - name: build solution Release
+      run: |
+        cd cpp
+        cmake --build --preset="Build-VS2022-x64-static" --config Release
+
+    - name: test Release
+      shell: bash
+      run: |
+        cd cpp/build/cgMultiVS2022x64Static/applications/openScenarioTester/Release
+        ./OpenScenarioTester && (exit 0) 

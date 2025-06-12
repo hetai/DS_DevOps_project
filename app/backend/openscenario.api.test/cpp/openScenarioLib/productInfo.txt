@@ -1,0 +1,3 @@
+PRODUCT_NAME=OpenScenarioLib
+PRODUCT_TYPE=dll
+FILE_DESCRIPTION=Library for validating OpenSCENARIO files.
