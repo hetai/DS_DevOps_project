@@ -1,0 +1,35 @@
+# DS_DevOps_project - Example Terraform Variables
+# Copy this file to terraform.tfvars and update the values as needed
+
+# AWS Region
+aws_region = "eu-west-3"
+
+# Environment
+environment = "dev"
+
+# Default Tags
+default_tags = {
+  Project     = "DS_DevOps_project"
+  Environment = "dev"
+  ManagedBy   = "Terraform"
+}
+
+# VPC and Networking
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["eu-west-3a", "eu-west-3b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.3.0/24", "10.0.4.0/24"]
+
+# Database
+db_name           = "dsdevops"
+db_username       = "dbadmin"
+db_password       = "CHANGE_ME_TO_SECURE_PASSWORD" # Change this to a secure password
+db_instance_class = "db.t3.micro"
+
+# ECS
+frontend_container_port = 80
+backend_container_port  = 8080
+frontend_cpu            = 256
+frontend_memory         = 512
+backend_cpu             = 512
+backend_memory          = 1024

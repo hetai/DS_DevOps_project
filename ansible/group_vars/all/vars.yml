@@ -1,0 +1,43 @@
+# AWS Configuration
+aws_region: eu-west-3
+# 使用 AWS Secrets Manager 获取凭证
+aws_access_key: "{{ lookup('aws_ssm', '/{{ environment }}/aws/access_key_id') }}"
+aws_secret_key: "{{ lookup('aws_ssm', '/{{ environment }}/aws/secret_access_key') }}"
+
+# Application Configuration
+app_name: ds_devops_project
+app_version: "{{ lookup('env', 'APP_VERSION') | default('latest') }}"
+
+# Docker Configuration
+docker_registry: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com"
+frontend_image: "{{ docker_registry }}/{{ environment }}-frontend:{{ app_version }}"
+backend_image: "{{ docker_registry }}/{{ environment }}-backend:{{ app_version }}"
+
+# Database Configuration
+db_host: "{{ lookup('aws_ec2', 'tag:Environment=' + environment + ' tag:Name=db') }}"
+db_name: dsdevops
+db_user: dbadmin
+db_password: "{{ lookup('aws_ssm', '/{{ environment }}/db/password') }}"
+
+# Security
+ssl_cert_path: /etc/ssl/certs/{{ app_name }}.crt
+ssl_key_path: /etc/ssl/private/{{ app_name }}.key
+
+# Monitoring
+log_level: INFO
+monitoring_enabled: true
+prometheus_port: 9090
+grafana_port: 3000
+
+# System Configuration
+system_timezone: UTC
+system_locale: en_US.UTF-8
+system_packages:
+  - docker.io
+  - docker-compose
+  - python3-pip
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - prometheus-node-exporter
+  - grafana 

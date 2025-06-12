@@ -1,0 +1,32 @@
+---
+# Common role handlers
+
+- name: restart docker
+  systemd:
+    name: docker
+    state: restarted
+  become: yes
+
+- name: restart nginx
+  systemd:
+    name: nginx
+    state: restarted
+  become: yes
+
+- name: restart prometheus-node-exporter
+  systemd:
+    name: prometheus-node-exporter
+    state: restarted
+  become: yes
+
+- name: restart grafana
+  systemd:
+    name: grafana-server
+    state: restarted
+  become: yes
+
+- name: reload nginx
+  systemd:
+    name: nginx
+    state: reloaded
+  become: yes 

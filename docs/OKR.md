@@ -13,8 +13,8 @@ Develop and deploy a cloud-native, intelligent system on AWS that leverages RAG 
 - [x] Initial documentation and setup guide
 
 ### KR2: AWS Cloud Infrastructure
-- [ ] Design and implement scalable AWS architecture using ECS/EKS for container orchestration
-- [ ] Set up secure VPC, IAM roles, and network configurations following AWS best practices
+- [x] Design and implement scalable AWS architecture using ECS for container orchestration
+- [x] Set up secure VPC, IAM roles, and network configurations following AWS best practices
 - [x] Configure custom player in a containerized environment for cloud deployment
 
 ### KR3: CI/CD Pipeline Implementation

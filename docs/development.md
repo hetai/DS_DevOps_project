@@ -333,3 +333,67 @@ feat: add user authentication
 
 Closes #123
 ```
+
+## AWS Deployment / AWS 部署
+
+### ECS Deployment / ECS 部署
+
+The application is deployed on AWS using ECS (Elastic Container Service) with Fargate. The deployment includes:
+
+- Frontend container running Nginx serving static files
+- Backend container running FastAPI
+- ALB (Application Load Balancer) for routing traffic
+
+应用程序使用 AWS ECS（Elastic Container Service）和 Fargate 进行部署。部署包括：
+
+- 运行 Nginx 服务静态文件的前端容器
+- 运行 FastAPI 的后端容器
+- 用于路由流量的 ALB（应用负载均衡器）
+
+### Docker Image Management / Docker 镜像管理
+
+Docker images are stored in ECR (Elastic Container Registry):
+
+```bash
+# Build and push frontend image
+cd app/frontend/scenario-tool-suite
+docker build -t <account-id>.dkr.ecr.<region>.amazonaws.com/dev-frontend:latest -f docker/nginx/Dockerfile .
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/dev-frontend:latest
+
+# Build and push backend image
+cd app/backend/openscenario-api-service
+docker build -t <account-id>.dkr.ecr.<region>.amazonaws.com/dev-backend:latest .
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/dev-backend:latest
+```
+
+Docker 镜像存储在 ECR（Elastic Container Registry）中：
+
+```bash
+# 构建并推送前端镜像
+cd app/frontend/scenario-tool-suite
+docker build -t <account-id>.dkr.ecr.<region>.amazonaws.com/dev-frontend:latest -f docker/nginx/Dockerfile .
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/dev-frontend:latest
+
+# 构建并推送后端镜像
+cd app/backend/openscenario-api-service
+docker build -t <account-id>.dkr.ecr.<region>.amazonaws.com/dev-backend:latest .
+docker push <account-id>.dkr.ecr.<region>.amazonaws.com/dev-backend:latest
+```
+
+### Troubleshooting / 故障排除
+
+For common AWS deployment issues and their solutions, refer to the [AWS Troubleshooting Guide](aws_troubleshooting.md).
+
+有关常见 AWS 部署问题及其解决方案，请参阅 [AWS 故障排除指南](aws_troubleshooting.md)。
+
+Key considerations for ECS deployments:
+
+1. **Service Discovery**: Use ALB DNS names for service-to-service communication in ECS Fargate
+2. **Container Health Checks**: Implement proper health checks in task definitions
+3. **CloudWatch Logs**: Monitor container logs for startup and runtime issues
+
+ECS 部署的关键考虑因素：
+
+1. **服务发现**：在 ECS Fargate 中使用 ALB DNS 名称进行服务间通信
+2. **容器健康检查**：在任务定义中实现适当的健康检查
+3. **CloudWatch 日志**：监控容器日志以发现启动和运行时问题

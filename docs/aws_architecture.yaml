@@ -1,0 +1,64 @@
+# CloudSkiff diagrams-as-code representation of AWS architecture
+# Render with: diagrams generate --input-file aws_architecture.yaml --output-file aws_architecture.drawio
+
+metadata:
+  name: openscenario-aws-architecture
+  diagram_type: aws
+  version: 1
+
+nodes:
+  vpc:
+    type: aws_vpc
+    label: "VPC"
+  alb:
+    type: aws_alb
+    label: "Application Load Balancer"
+    parent: vpc
+  ecs_cluster:
+    type: aws_ecs_cluster
+    label: "ECS Cluster"
+    parent: vpc
+  ecs_frontend:
+    type: aws_ecs_service
+    label: "ECS Frontend Service"
+    parent: ecs_cluster
+  ecs_backend:
+    type: aws_ecs_service
+    label: "ECS Backend Service"
+    parent: ecs_cluster
+  rds:
+    type: aws_rds_instance
+    label: "PostgreSQL RDS"
+    parent: vpc
+  s3_bucket:
+    type: aws_s3_bucket
+    label: "S3 Static Bucket"
+  cloudfront:
+    type: aws_cloudfront_distribution
+    label: "CloudFront"
+  ecr:
+    type: aws_ecr_repository
+    label: "ECR"
+
+edges:
+  - from: cloudfront
+    to: alb
+    label: "HTTPS"
+  - from: alb
+    to: ecs_frontend
+    label: "HTTP 80"
+  - from: alb
+    to: ecs_backend
+    label: "HTTP 80"
+  - from: ecs_backend
+    to: rds
+    label: "PostgreSQL 5432"
+  - from: ecs_frontend
+    to: s3_bucket
+    label: "Static assets"
+  - from: ecr
+    to: ecs_frontend
+    label: "Docker images"
+  - from: ecr
+    to: ecs_backend
+    label: "Docker images"

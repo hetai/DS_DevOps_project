@@ -1,0 +1,59 @@
+---
+# DS_DevOps_project - Main Playbook
+
+- name: Configure common settings for all servers
+  hosts: all
+  roles:
+    - common
+
+- name: Configure and deploy frontend
+  hosts: frontend
+  roles:
+    - frontend
+  vars:
+    nginx_config_template: frontend.conf.j2
+    nginx_site_name: frontend
+
+- name: Configure and deploy backend
+  hosts: backend
+  roles:
+    - backend
+  vars:
+    nginx_config_template: backend.conf.j2
+    nginx_site_name: backend
+
+- name: Verify deployment
+  hosts: all
+  tasks:
+    - name: Check service status
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - docker
+        - nginx
+        - prometheus-node-exporter
+        - grafana
+      register: service_status
+
+    - name: Display service status
+      debug:
+        var: service_status
+        verbosity: 1
+
+    - name: Check application health
+      uri:
+        url: "http://localhost:{{ item.port }}/health"
+        return_content: yes
+        status_code: 200
+      loop:
+        - { name: frontend, port: 80 }
+        - { name: backend, port: 8080 }
+      register: health_check
+      ignore_errors: yes
+
+    - name: Display health check results
+      debug:
+        var: health_check
+        verbosity: 1 

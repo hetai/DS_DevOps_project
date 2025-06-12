@@ -1,0 +1,92 @@
+---
+# Common role tasks
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install system packages
+  apt:
+    name: "{{ system_packages }}"
+    state: present
+  become: yes
+
+- name: Set timezone
+  timezone:
+    name: "{{ system_timezone }}"
+  become: yes
+
+- name: Set system locale
+  locale_gen:
+    name: "{{ system_locale }}"
+    state: present
+  become: yes
+
+- name: Configure Docker daemon
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: restart docker
+
+- name: Install Docker Python module
+  pip:
+    name: docker
+    state: present
+
+- name: Configure AWS credentials
+  template:
+    src: aws-credentials.j2
+    dest: "{{ ansible_user_home }}/.aws/credentials"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0600'
+
+- name: Configure AWS config
+  template:
+    src: aws-config.j2
+    dest: "{{ ansible_user_home }}/.aws/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Login to ECR
+  shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ docker_registry }}
+  become: yes
+  become_user: "{{ ansible_user }}"
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+  loop:
+    - "{{ ansible_user_home }}/{{ app_name }}"
+    - "{{ ansible_user_home }}/{{ app_name }}/logs"
+    - "{{ ansible_user_home }}/{{ app_name }}/config"
+    - "{{ ansible_user_home }}/{{ app_name }}/data"
+
+- name: Configure logrotate
+  template:
+    src: logrotate.conf.j2
+    dest: /etc/logrotate.d/{{ app_name }}
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: Configure system limits
+  template:
+    src: limits.conf.j2
+    dest: /etc/security/limits.d/{{ app_name }}.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes 
