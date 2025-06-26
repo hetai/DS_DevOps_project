@@ -5,9 +5,9 @@ services:
     build:
       context: ./app/frontend/scenario-tool-suite
       dockerfile: Dockerfile.dev
-    container_name: openscenario-frontend-dev
+    container_name: openscenario-frontend-simple
     ports:
-      - "8081:3000"
+      - "3000:3000"
     volumes:
       - ./app/frontend/scenario-tool-suite:/app
       - /app/node_modules
@@ -22,27 +22,17 @@ services:
   backend:
     build:
       context: ./app/backend/openscenario-api-service
-      dockerfile: Dockerfile.dev
-    container_name: openscenario-backend-dev
+      dockerfile: Dockerfile.simple
+    container_name: openscenario-backend-simple
     ports:
       - "8080:8080"
     volumes:
       - ./app/backend/openscenario-api-service:/app
-      - /app/venv
-      - ./data/validator:/app/validator
-      - ./data/ncap_data:/app/ncap_data
     environment:
-      - VALIDATOR_PATH=/app/validator/OpenSCENARIOValidator
-      - LD_LIBRARY_PATH=/app/validator
       - PORT=8080
       - LOG_LEVEL=DEBUG
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-your-openai-api-key-here}
-      - RAG_DATA_DIR=/app/ncap_data
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
-    command: >
-      sh -c "uvicorn main:app --reload --host 0.0.0.0 --port 8080"
     networks:
       - openscenario-network
 

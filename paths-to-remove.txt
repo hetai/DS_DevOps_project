@@ -1,0 +1,6 @@
+terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.99.1/linux_amd64/terraform-provider-aws_v5.99.1_x5
+app/backend/openscenario.api.test/generator/de.rac.openscenario.generator/src/main/resources/input/OpenSCENARIO1_2_Patched.eapx
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/openScenarioLib/libOpenScenarioLib.so.1.4.0
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/applications/openScenarioTester/libOpenScenarioLib.so.1.4.0
+app/backend/openscenario.api.test/cpp/build/cgReleaseMakeShared/applications/openScenarioReader/libOpenScenarioLib.so.1.4.0
+app/frontend/scenario-tool-suite/node_modules/@swc/core-linux-x64-musl/swc.linux-x64-musl.node

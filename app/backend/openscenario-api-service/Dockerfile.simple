@@ -1,0 +1,25 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install minimal Python dependencies
+COPY requirements-minimal.txt .
+RUN pip install --no-cache-dir -r requirements-minimal.txt
+
+# Copy the application code
+COPY . .
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PORT=8080
+ENV LOG_LEVEL=DEBUG
+
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Command to run the application with simple backend
+CMD ["uvicorn", "app.main_simple:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]

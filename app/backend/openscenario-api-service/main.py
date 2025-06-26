@@ -1,11 +1,11 @@
-from fastapi import FastAPI
+#!/usr/bin/env python3
+"""
+Main entry point for the AI-Enhanced OpenSCENARIO API
+"""
 
-app = FastAPI()
+from app.main_working import app
 
-@app.get('/')
-async def read_root():
-    return {'message': 'OpenSCENARIO API is running'}
-
-@app.get('/health')
-async def health_check():
-    return {'status': 'healthy'}
+# This is the main entry point when running the application
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)

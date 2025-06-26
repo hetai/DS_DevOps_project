@@ -3,14 +3,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
-
 # Copy package files
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json package-lock.json* ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN npm ci
 
 # Copy the rest of the application
 COPY . .
@@ -18,5 +15,5 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 3000
 
-# Start the development server
-CMD ["pnpm", "run", "dev", "--host"]
+# Start the development server with host binding for Docker
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

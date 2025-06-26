@@ -1,0 +1,7 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.3
+openai>=1.12.0
+lxml==4.9.3
+requests==2.32.4
