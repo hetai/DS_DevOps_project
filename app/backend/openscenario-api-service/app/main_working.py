@@ -1,16 +1,20 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 import os
 import json
 from typing import Optional
 
 from .schemas import (
     ChatRequest, ChatResponse, GenerationRequest, GenerationResponse,
-    ScenarioParameters, ValidationResult
+    ScenarioParameters, ValidationResult, WorkflowResponse
 )
+from .schemas import WorkflowRequest, WorkflowSummary
 from typing import List
 from .ai_service_working import ai_service
+from .workflow_service import workflow_manager
+from .api_documentation import setup_api_documentation
 
 # Try to import scenario generator, fall back to mock if not available
 try:
@@ -26,6 +30,9 @@ app = FastAPI(
     description="API for AI-powered ASAM OpenX scenario generation and validation",
     version="1.0.0"
 )
+
+# Setup comprehensive API documentation
+setup_api_documentation(app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -54,6 +61,11 @@ async def read_root():
 @app.get('/health')
 async def health_check():
     return {'status': 'healthy'}
+
+@app.get('/api/docs/openapi.json')
+async def get_openapi_json():
+    """Get OpenAPI specification in JSON format"""
+    return app.openapi()
 
 @app.post('/api/chat', response_model=ChatResponse)
 async def chat_with_ai(request: ChatRequest):
@@ -400,6 +412,140 @@ async def validate_scenario_pair(files: List[UploadFile] = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post('/api/workflow/generate-and-validate', response_model=WorkflowResponse)
+async def workflow_generate_and_validate(request: WorkflowRequest):
+    """Execute integrated workflow: generation followed by automatic validation"""
+    try:
+        # Create and execute workflow using our test-compliant method
+        session_id = await workflow_manager.generate_and_validate(request)
+        
+        # Get the workflow state
+        workflow = await workflow_manager.get_workflow_status(session_id)
+        
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        # Build response
+        response = WorkflowResponse(
+            session_id=workflow.session_id,
+            status=workflow.status.value,
+            current_step=workflow.current_step.value if workflow.current_step else None,
+            progress=workflow.progress,
+            created_at=workflow.created_at.isoformat() if workflow.created_at else None,
+            updated_at=workflow.updated_at.isoformat() if workflow.updated_at else None,
+            scenario_files=workflow.scenario_files or {},
+            validation_results=workflow.validation_results or {},
+            visualization_metadata=workflow.metadata.get("visualization") if workflow.metadata else None,
+            error_message=workflow.error_message,
+            error_step=workflow.error_step.value if workflow.error_step else None
+        )
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CompleteWorkflowRequest(BaseModel):
+    session_id: str = Field(..., min_length=1)
+
+@app.post('/api/workflow/complete', response_model=WorkflowResponse)
+async def workflow_complete(request: CompleteWorkflowRequest):
+    """Complete an existing workflow session"""
+    try:
+        session_id = request.session_id
+        
+        # Complete existing workflow
+        workflow = await workflow_manager.complete_workflow(session_id)
+        
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
+        
+        # Build response
+        response = WorkflowResponse(
+            session_id=workflow.session_id,
+            status=workflow.status.value,
+            current_step=workflow.current_step.value if workflow.current_step else None,
+            progress=workflow.progress,
+            created_at=workflow.created_at.isoformat() if workflow.created_at else None,
+            updated_at=workflow.updated_at.isoformat() if workflow.updated_at else None,
+            scenario_files=workflow.scenario_files or {},
+            validation_results=workflow.validation_results or {},
+            visualization_metadata=workflow.metadata.get("visualization") if workflow.metadata else None,
+            error_message=workflow.error_message,
+            error_step=workflow.error_step.value if workflow.error_step else None
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/api/workflow/{session_id}/status', response_model=WorkflowSummary)
+async def get_workflow_status(session_id: str):
+    """Get current workflow status and progress"""
+    try:
+        workflow = await workflow_manager.get_workflow_status(session_id)
+        
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
+        
+        # Convert to summary format
+        summary = {
+            "session_id": workflow.session_id,
+            "status": workflow.status.value,
+            "current_step": workflow.current_step.value if workflow.current_step else None,
+            "progress": workflow.progress
+        }
+        
+        return WorkflowSummary(**summary)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/api/workflow/{session_id}/files')
+async def get_workflow_files(session_id: str):
+    """Get generated files from a workflow session"""
+    try:
+        workflow = await workflow_manager.get_workflow_status(session_id)
+        
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
+        
+        return {
+            "session_id": session_id,
+            "status": workflow.status.value,
+            "files": workflow.scenario_files or {}
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/api/workflow/{session_id}/validation')
+async def get_workflow_validation(session_id: str):
+    """Get validation results from a workflow session"""
+    try:
+        workflow = await workflow_manager.get_workflow_status(session_id)
+        
+        if not workflow:
+            raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
+        
+        return {
+            "session_id": session_id,
+            "status": workflow.status.value,
+            "validation_results": workflow.validation_results or {}
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get('/api/status')
 async def get_api_status():
     """Get API and service status"""
@@ -432,6 +578,9 @@ async def get_api_status():
             "generate": "/api/generate",
             "validate": "/api/validate",
             "validate_pair": "/api/validate-pair",
+            "workflow_generate_validate": "/api/workflow/generate-and-validate",
+            "workflow_complete": "/api/workflow/complete",
+            "workflow_status": "/api/workflow/{session_id}/status",
             "status": "/api/status"
         }
     }

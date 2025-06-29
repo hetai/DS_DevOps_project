@@ -1,0 +1,1741 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI-Enhanced OpenSCENARIO API",
+    "description": "\n# AI-Enhanced ASAM OpenX Scenario Generation API\n\nThis API provides AI-powered conversational scenario generation and validation for ASAM OpenX standards (OpenSCENARIO and OpenDRIVE).\n\n## Features\n\n- **🤖 Conversational AI**: Natural language scenario description using OpenAI GPT-4\n- **🔧 Scenario Generation**: Real OpenSCENARIO (.xosc) and OpenDRIVE (.xodr) file generation using pyoscx\n- **✅ Comprehensive Validation**: ASAM Quality Checker Framework integration with multiple validation levels\n- **🎯 Integrated Workflow**: Seamless generation → validation → visualization pipeline\n- **📊 3D Visualization Support**: Metadata preparation for Three.js-based 3D rendering\n- **🧪 NCAP Compliance**: Euro NCAP test scenario generation and validation\n\n## API Usage Flow\n\n1. **Chat with AI** (`/api/chat`) - Describe your scenario in natural language\n2. **Generate Scenario** (`/api/generate`) - Create OpenSCENARIO/OpenDRIVE files\n3. **Validate Files** (`/api/validate` or `/api/validate-pair`) - Ensure ASAM compliance\n4. **Integrated Workflow** (`/api/workflow/*`) - Execute complete pipeline automatically\n\n## Authentication\n\nCurrently no authentication required. API is designed for internal use with proper network security.\n\n## Rate Limits\n\n- Chat endpoints: Limited by OpenAI API quotas\n- Generation endpoints: No specific limits\n- Validation endpoints: No specific limits\n\n## Error Handling\n\nAll endpoints return structured error responses with:\n- HTTP status codes (400, 404, 422, 500)\n- Detailed error messages\n- Context-specific error information\n        ",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "API Information",
+        "operationId": "read_root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "tags": [
+          "Core"
+        ],
+        "description": "Get basic API information, version, and available endpoints"
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "tags": [
+          "Core"
+        ],
+        "description": "Simple health check endpoint for monitoring"
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "summary": "Conversational AI Chat",
+        "description": "\n        Engage in natural language conversation to extract scenario parameters.\n        \n        The AI assistant will:\n        - Ask clarifying questions about your scenario\n        - Extract technical parameters from natural language\n        - Determine when enough information is collected\n        - Provide suggestions for scenario improvements\n        \n        **Example conversation flow:**\n        1. User: \"Create a highway overtaking scenario\"\n        2. AI: \"I'd like to help you create a highway overtaking scenario. Could you tell me more about...\"\n        3. User provides details about vehicles, speeds, conditions\n        4. AI extracts parameters and asks for missing information\n        5. When complete, `is_complete` becomes `true` and `parameters_extracted` contains full scenario data\n        ",
+        "operationId": "chat_with_ai_api_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                },
+                "examples": {
+                  "initial_response": {
+                    "summary": "Initial AI response",
+                    "value": {
+                      "message": "I'd like to help you create a highway overtaking scenario. Could you tell me more about the vehicles involved and their initial speeds?",
+                      "parameters_extracted": null,
+                      "is_complete": false,
+                      "suggestions": [
+                        "What type of vehicles are involved? (car, truck, etc.)",
+                        "What are their initial speeds?",
+                        "What are the road conditions?"
+                      ]
+                    }
+                  },
+                  "complete_response": {
+                    "summary": "Complete scenario extracted",
+                    "value": {
+                      "message": "Perfect! I have all the information needed to generate your highway overtaking scenario.",
+                      "parameters_extracted": {
+                        "scenario_name": "Highway Overtaking Scenario",
+                        "description": "A sedan overtakes a slower truck on a 2-lane highway",
+                        "vehicles": [
+                          {
+                            "name": "ego",
+                            "category": "car",
+                            "initial_speed": 25.0
+                          }
+                        ]
+                      },
+                      "is_complete": true,
+                      "suggestions": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/api/generate": {
+      "post": {
+        "summary": "Generate Scenario Files",
+        "description": "\n        Generate OpenSCENARIO (.xosc) and OpenDRIVE (.xodr) files from scenario parameters.\n        \n        Uses the pyoscx library for ASAM-compliant file generation:\n        - Creates realistic vehicle models with proper physics\n        - Generates road networks (highways, intersections, custom roads)\n        - Implements event and action systems\n        - Supports multiple OpenSCENARIO versions\n        \n        **Input**: Complete scenario parameters from chat extraction\n        **Output**: Dictionary of generated files (filename -> content)\n        ",
+        "operationId": "generate_scenario_api_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationResponse"
+                },
+                "examples": {
+                  "successful_generation": {
+                    "summary": "Successful file generation",
+                    "value": {
+                      "success": true,
+                      "scenario_files": {
+                        "Highway_Overtaking_Scenario.xosc": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<OpenSCENARIO>...",
+                        "Highway_Overtaking_Scenario.xodr": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<OpenDRIVE>..."
+                      },
+                      "validation_results": null,
+                      "variations": [],
+                      "error_message": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Generation"
+        ]
+      }
+    },
+    "/api/validate": {
+      "post": {
+        "summary": "Validate Single File",
+        "description": "\n        Validate a single OpenSCENARIO (.xosc) or OpenDRIVE (.xodr) file.\n        \n        Validation levels (automatic detection):\n        1. **ASAM QCF**: Full Quality Checker Framework validation (if available)\n        2. **Enhanced XML**: Schema validation with domain-specific rules\n        3. **Basic XML**: Fallback XML syntax validation\n        \n        **Supported files**: .xosc, .xodr\n        **Output**: Validation results with error details, line numbers, and rule IDs\n        ",
+        "operationId": "validate_scenario_api_validate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validate_scenario_api_validate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "examples": {
+                  "valid_file": {
+                    "summary": "Valid file result",
+                    "value": {
+                      "valid": true,
+                      "messages": [],
+                      "summary": {
+                        "total_errors": 0,
+                        "total_warnings": 0,
+                        "total_info": 1
+                      }
+                    }
+                  },
+                  "invalid_file": {
+                    "summary": "Invalid file with errors",
+                    "value": {
+                      "valid": false,
+                      "messages": [
+                        {
+                          "message": "Missing required attribute 'name' in Vehicle element",
+                          "level": "ERROR",
+                          "line": 15,
+                          "column": 8,
+                          "rule_id": "ASAM_OSC_001",
+                          "file_path": "scenario.xosc"
+                        }
+                      ],
+                      "summary": {
+                        "total_errors": 1,
+                        "total_warnings": 0,
+                        "total_info": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/api/validate-pair": {
+      "post": {
+        "summary": "Validate File Pair",
+        "description": "\n        Validate OpenSCENARIO and OpenDRIVE files together for cross-file consistency.\n        \n        Additional validation checks:\n        - Road ID consistency between .xosc and .xodr\n        - Lane reference validation\n        - Entity positioning consistency\n        - Network topology validation\n        \n        **Required**: Exactly 2 files (.xosc and .xodr)\n        **Output**: Combined validation results for both files\n        ",
+        "operationId": "validate_scenario_pair_api_validate_pair_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_validate_scenario_pair_api_validate_pair_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/api/workflow/generate-and-validate": {
+      "post": {
+        "summary": "Generate and Validate Workflow",
+        "description": "\n        Execute integrated workflow: Generation → Validation\n        \n        Workflow steps:\n        1. Generate OpenSCENARIO and OpenDRIVE files from parameters\n        2. Automatically validate generated files\n        3. Return session ID for status polling\n        \n        **Use case**: When you want automatic validation after generation\n        **Output**: Workflow session with real-time status tracking\n        ",
+        "operationId": "workflow_generate_and_validate_api_workflow_generate_and_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workflow"
+        ]
+      }
+    },
+    "/api/workflow/complete": {
+      "post": {
+        "summary": "Complete Workflow",
+        "description": "\n        Complete a workflow session with visualization preparation.\n        \n        Additional steps:\n        1. Prepare 3D visualization metadata\n        2. Extract road network geometry\n        3. Process validation results for visual highlighting\n        \n        **Use case**: When you want to visualize generated scenarios in 3D\n        **Input**: Existing workflow session ID\n        ",
+        "operationId": "workflow_complete_api_workflow_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workflow"
+        ]
+      }
+    },
+    "/api/workflow/{session_id}/status": {
+      "get": {
+        "summary": "Get Workflow Status",
+        "description": "\n        Get current status and progress of a workflow session.\n        \n        **Status values**:\n        - `pending`: Workflow created but not started\n        - `in_progress`: Currently executing\n        - `completed`: Successfully finished\n        - `failed`: Error occurred\n        \n        **Use case**: Real-time progress monitoring in UI\n        ",
+        "operationId": "get_workflow_status_api_workflow__session_id__status_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workflow"
+        ]
+      }
+    },
+    "/api/workflow/{session_id}/files": {
+      "get": {
+        "summary": "Get Workflow Files",
+        "description": "\n        Retrieve generated files from a completed workflow.\n        \n        **Returns**: Dictionary of filenames and content\n        **Use case**: Download generated .xosc/.xodr files\n        ",
+        "operationId": "get_workflow_files_api_workflow__session_id__files_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workflow"
+        ]
+      }
+    },
+    "/api/workflow/{session_id}/validation": {
+      "get": {
+        "summary": "Get Workflow Validation",
+        "description": "\n        Retrieve validation results from a workflow session.\n        \n        **Returns**: Validation results for all generated files\n        **Use case**: Display validation errors and warnings in UI\n        ",
+        "operationId": "get_workflow_validation_api_workflow__session_id__validation_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workflow"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Service Status",
+        "description": "\n        Get comprehensive API and service status information.\n        \n        **Returns**:\n        - API operational status\n        - OpenAI configuration status\n        - Scenario generator availability\n        - Validation service capabilities\n        - Available endpoints\n        \n        **Use case**: Service health monitoring and capability detection\n        ",
+        "operationId": "get_api_status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "tags": [
+          "Core"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Action": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "speed",
+              "lane_change",
+              "teleport"
+            ],
+            "title": "Type",
+            "description": "Action type"
+          },
+          "speed_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpeedAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Speed action parameters"
+          },
+          "lane_change_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LaneChangeAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Lane change parameters"
+          },
+          "delay": {
+            "type": "number",
+            "title": "Delay",
+            "description": "Action start delay in seconds",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "Action"
+      },
+      "Body_validate_scenario_api_validate_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_validate_scenario_api_validate_post"
+      },
+      "Body_validate_scenario_pair_api_validate_pair_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_validate_scenario_pair_api_validate_pair_post"
+      },
+      "BoundingBox": {
+        "properties": {
+          "width": {
+            "type": "number",
+            "title": "Width",
+            "description": "Vehicle width in meters"
+          },
+          "length": {
+            "type": "number",
+            "title": "Length",
+            "description": "Vehicle length in meters"
+          },
+          "height": {
+            "type": "number",
+            "title": "Height",
+            "description": "Vehicle height in meters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "width",
+          "length",
+          "height"
+        ],
+        "title": "BoundingBox"
+      },
+      "ChatMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "description": "Message sender role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Message content"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp",
+            "description": "Message timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatMessage"
+      },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "User message"
+          },
+          "conversation_history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "type": "array",
+            "title": "Conversation History",
+            "description": "Previous conversation"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "Conversation session ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "ChatResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Assistant response"
+          },
+          "parameters_extracted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioParameters-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Extracted scenario parameters"
+          },
+          "is_complete": {
+            "type": "boolean",
+            "title": "Is Complete",
+            "description": "Whether scenario is complete and ready for generation",
+            "default": false
+          },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggestions",
+            "description": "Suggested follow-up questions or clarifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatResponse"
+      },
+      "CompleteWorkflowRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id"
+        ],
+        "title": "CompleteWorkflowRequest"
+      },
+      "Condition": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "simulation_time",
+              "traveled_distance",
+              "relative_speed"
+            ],
+            "title": "Type",
+            "description": "Condition type"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Condition threshold value"
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "greaterThan",
+              "lessThan",
+              "equalTo"
+            ],
+            "title": "Rule",
+            "description": "Comparison rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value",
+          "rule"
+        ],
+        "title": "Condition"
+      },
+      "EnvironmentalConditions": {
+        "properties": {
+          "weather": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeatherCondition"
+              }
+            ],
+            "description": "Weather conditions",
+            "default": "dry"
+          },
+          "time_of_day": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
+              }
+            ],
+            "description": "Time of day",
+            "default": "day"
+          },
+          "precipitation": {
+            "type": "number",
+            "title": "Precipitation",
+            "description": "Precipitation intensity (0.0-1.0)",
+            "default": 0.0
+          },
+          "visibility": {
+            "type": "number",
+            "title": "Visibility",
+            "description": "Visibility range in meters",
+            "default": 1000.0
+          },
+          "wind_speed": {
+            "type": "number",
+            "title": "Wind Speed",
+            "description": "Wind speed in m/s",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "EnvironmentalConditions"
+      },
+      "Event-Input": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Event name"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            },
+            "type": "array",
+            "title": "Actions",
+            "description": "Actions to execute"
+          },
+          "start_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "type": "array",
+            "title": "Start Conditions",
+            "description": "Conditions to start event"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "overwrite",
+              "skip",
+              "parallel"
+            ],
+            "title": "Priority",
+            "description": "Event priority",
+            "default": "overwrite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "actions",
+          "start_conditions"
+        ],
+        "title": "Event"
+      },
+      "Event-Output": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Event name"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            },
+            "type": "array",
+            "title": "Actions",
+            "description": "Actions to execute"
+          },
+          "start_conditions": {
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "type": "array",
+            "title": "Start Conditions",
+            "description": "Conditions to start event"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "overwrite",
+              "skip",
+              "parallel"
+            ],
+            "title": "Priority",
+            "description": "Event priority",
+            "default": "overwrite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "actions",
+          "start_conditions"
+        ],
+        "title": "Event"
+      },
+      "GenerationRequest": {
+        "properties": {
+          "parameters": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioParameters-Input"
+              }
+            ],
+            "description": "Complete scenario parameters"
+          },
+          "generate_variations": {
+            "type": "boolean",
+            "title": "Generate Variations",
+            "description": "Generate parameter variations",
+            "default": false
+          },
+          "output_format": {
+            "type": "string",
+            "enum": [
+              "1.0",
+              "1.1",
+              "1.2",
+              "1.3"
+            ],
+            "title": "Output Format",
+            "description": "OpenSCENARIO version",
+            "default": "1.2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parameters"
+        ],
+        "title": "GenerationRequest"
+      },
+      "GenerationResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Generation success status"
+          },
+          "scenario_files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Scenario Files",
+            "description": "Generated files (filename -> content)"
+          },
+          "validation_results": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidationResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Validation results"
+          },
+          "variations": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Variations",
+            "description": "Generated variations"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error message if generation failed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "GenerationResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LaneChangeAction": {
+        "properties": {
+          "target_lane_offset": {
+            "type": "integer",
+            "title": "Target Lane Offset",
+            "description": "Number of lanes to change (+ for left, - for right)"
+          },
+          "transition_dynamics": {
+            "type": "string",
+            "title": "Transition Dynamics",
+            "description": "Lane change dynamics",
+            "default": "sinusoidal"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration",
+            "description": "Lane change duration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_lane_offset"
+        ],
+        "title": "LaneChangeAction"
+      },
+      "LanePosition": {
+        "properties": {
+          "road_id": {
+            "type": "string",
+            "title": "Road Id",
+            "description": "Road ID from OpenDRIVE"
+          },
+          "lane_id": {
+            "type": "integer",
+            "title": "Lane Id",
+            "description": "Lane ID (negative for right lanes, positive for left)"
+          },
+          "s": {
+            "type": "number",
+            "title": "S",
+            "description": "Position along road centerline in meters"
+          },
+          "offset": {
+            "type": "number",
+            "title": "Offset",
+            "description": "Lateral offset from lane center in meters",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "road_id",
+          "lane_id",
+          "s"
+        ],
+        "title": "LanePosition"
+      },
+      "Performance": {
+        "properties": {
+          "max_speed": {
+            "type": "number",
+            "title": "Max Speed",
+            "description": "Maximum speed in m/s"
+          },
+          "max_acceleration": {
+            "type": "number",
+            "title": "Max Acceleration",
+            "description": "Maximum acceleration in m/s²"
+          },
+          "max_deceleration": {
+            "type": "number",
+            "title": "Max Deceleration",
+            "description": "Maximum deceleration in m/s²"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_speed",
+          "max_acceleration",
+          "max_deceleration"
+        ],
+        "title": "Performance"
+      },
+      "RoadNetwork": {
+        "properties": {
+          "opendrive_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opendrive File",
+            "description": "OpenDRIVE file path"
+          },
+          "road_description": {
+            "type": "string",
+            "title": "Road Description",
+            "description": "Natural language description of road network"
+          },
+          "generate_simple_road": {
+            "type": "boolean",
+            "title": "Generate Simple Road",
+            "description": "Generate simple road if no OpenDRIVE file",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "road_description"
+        ],
+        "title": "RoadNetwork"
+      },
+      "ScenarioParameters-Input": {
+        "properties": {
+          "scenario_name": {
+            "type": "string",
+            "title": "Scenario Name",
+            "description": "Scenario name/title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Detailed scenario description"
+          },
+          "road_network": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoadNetwork"
+              }
+            ],
+            "description": "Road network configuration"
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/Vehicle"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "description": "All vehicles in the scenario"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event-Input"
+            },
+            "type": "array",
+            "title": "Events",
+            "description": "Sequence of events in the scenario"
+          },
+          "environment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentalConditions"
+              }
+            ],
+            "description": "Environmental conditions"
+          },
+          "openscenario_version": {
+            "type": "string",
+            "title": "Openscenario Version",
+            "description": "OpenSCENARIO version to generate",
+            "default": "1.2"
+          },
+          "ncap_compliance": {
+            "type": "boolean",
+            "title": "Ncap Compliance",
+            "description": "Ensure NCAP compliance",
+            "default": true
+          },
+          "parameter_variations": {
+            "type": "object",
+            "title": "Parameter Variations",
+            "description": "Parameter ranges for variations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_name",
+          "description",
+          "road_network",
+          "vehicles",
+          "events"
+        ],
+        "title": "ScenarioParameters",
+        "description": "Complete ASAM OpenX scenario parameters extracted from natural language"
+      },
+      "ScenarioParameters-Output": {
+        "properties": {
+          "scenario_name": {
+            "type": "string",
+            "title": "Scenario Name",
+            "description": "Scenario name/title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Detailed scenario description"
+          },
+          "road_network": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoadNetwork"
+              }
+            ],
+            "description": "Road network configuration"
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/Vehicle"
+            },
+            "type": "array",
+            "title": "Vehicles",
+            "description": "All vehicles in the scenario"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event-Output"
+            },
+            "type": "array",
+            "title": "Events",
+            "description": "Sequence of events in the scenario"
+          },
+          "environment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnvironmentalConditions"
+              }
+            ],
+            "description": "Environmental conditions"
+          },
+          "openscenario_version": {
+            "type": "string",
+            "title": "Openscenario Version",
+            "description": "OpenSCENARIO version to generate",
+            "default": "1.2"
+          },
+          "ncap_compliance": {
+            "type": "boolean",
+            "title": "Ncap Compliance",
+            "description": "Ensure NCAP compliance",
+            "default": true
+          },
+          "parameter_variations": {
+            "type": "object",
+            "title": "Parameter Variations",
+            "description": "Parameter ranges for variations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_name",
+          "description",
+          "road_network",
+          "vehicles",
+          "events"
+        ],
+        "title": "ScenarioParameters",
+        "description": "Complete ASAM OpenX scenario parameters extracted from natural language"
+      },
+      "SpeedAction": {
+        "properties": {
+          "target_speed": {
+            "type": "number",
+            "title": "Target Speed",
+            "description": "Target speed in m/s"
+          },
+          "transition_dynamics": {
+            "type": "string",
+            "title": "Transition Dynamics",
+            "description": "Speed transition type",
+            "default": "linear"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration",
+            "description": "Transition duration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_speed"
+        ],
+        "title": "SpeedAction"
+      },
+      "TimeOfDay": {
+        "type": "string",
+        "enum": [
+          "day",
+          "night",
+          "dawn",
+          "dusk"
+        ],
+        "title": "TimeOfDay"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValidationResult": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "description": "Whether the file is valid"
+          },
+          "messages": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Messages",
+            "description": "Validation messages"
+          },
+          "file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name",
+            "description": "Name of validated file"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid"
+        ],
+        "title": "ValidationResult"
+      },
+      "Vehicle": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Unique vehicle identifier"
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleCategory"
+              }
+            ],
+            "description": "Vehicle category"
+          },
+          "bounding_box": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BoundingBox"
+              }
+            ],
+            "description": "Vehicle dimensions"
+          },
+          "performance": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Performance"
+              }
+            ],
+            "description": "Vehicle performance characteristics"
+          },
+          "initial_speed": {
+            "type": "number",
+            "title": "Initial Speed",
+            "description": "Initial speed in m/s",
+            "default": 0.0
+          },
+          "initial_position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LanePosition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Initial lane position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "bounding_box",
+          "performance"
+        ],
+        "title": "Vehicle"
+      },
+      "VehicleCategory": {
+        "type": "string",
+        "enum": [
+          "car",
+          "van",
+          "truck",
+          "semitrailer",
+          "bus",
+          "motorbike",
+          "bicycle",
+          "pedestrian"
+        ],
+        "title": "VehicleCategory"
+      },
+      "WeatherCondition": {
+        "type": "string",
+        "enum": [
+          "dry",
+          "wet",
+          "foggy",
+          "snowy"
+        ],
+        "title": "WeatherCondition"
+      },
+      "WorkflowRequest": {
+        "properties": {
+          "parameters": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScenarioParameters-Input"
+              }
+            ],
+            "description": "Scenario parameters for workflow"
+          },
+          "auto_validate": {
+            "type": "boolean",
+            "title": "Auto Validate",
+            "description": "Automatically validate after generation",
+            "default": true
+          },
+          "prepare_visualization": {
+            "type": "boolean",
+            "title": "Prepare Visualization",
+            "description": "Prepare data for 3D visualization",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "parameters"
+        ],
+        "title": "WorkflowRequest"
+      },
+      "WorkflowResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "description": "Workflow session identifier"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current workflow status"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step",
+            "description": "Current workflow step"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress",
+            "description": "Progress percentage (0.0 to 1.0)"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "Workflow creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At",
+            "description": "Last update timestamp"
+          },
+          "scenario_files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Scenario Files",
+            "description": "Generated scenario files"
+          },
+          "validation_results": {
+            "type": "object",
+            "title": "Validation Results",
+            "description": "Validation results by filename"
+          },
+          "visualization_metadata": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visualization Metadata",
+            "description": "Metadata for 3D visualization"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error message if workflow failed"
+          },
+          "error_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Step",
+            "description": "Step where error occurred"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "progress",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WorkflowResponse"
+      },
+      "WorkflowSummary": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "description": "Workflow session identifier"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current workflow status"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step",
+            "description": "Current workflow step"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress",
+            "description": "Progress percentage (0.0 to 1.0)"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At",
+            "description": "Workflow creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At",
+            "description": "Last update timestamp"
+          },
+          "has_files": {
+            "type": "boolean",
+            "title": "Has Files",
+            "description": "Whether workflow has generated files"
+          },
+          "has_validation": {
+            "type": "boolean",
+            "title": "Has Validation",
+            "description": "Whether workflow has validation results"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error message if workflow failed"
+          },
+          "error_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Step",
+            "description": "Step where error occurred"
+          },
+          "file_count": {
+            "type": "integer",
+            "title": "File Count",
+            "description": "Number of generated files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "progress",
+          "created_at",
+          "updated_at",
+          "has_files",
+          "has_validation",
+          "file_count"
+        ],
+        "title": "WorkflowSummary"
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key authentication (future implementation)"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication (future implementation)"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Core",
+      "description": "Basic API status and health endpoints"
+    },
+    {
+      "name": "Chat",
+      "description": "Conversational AI for scenario parameter extraction"
+    },
+    {
+      "name": "Generation",
+      "description": "OpenSCENARIO and OpenDRIVE file generation"
+    },
+    {
+      "name": "Validation",
+      "description": "ASAM OpenX file validation using Quality Checker Framework"
+    },
+    {
+      "name": "Workflow",
+      "description": "Integrated scenario workflow management"
+    }
+  ]
+}

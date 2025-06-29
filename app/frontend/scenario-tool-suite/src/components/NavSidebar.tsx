@@ -2,7 +2,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, PlayCircle, Bot, FileCheck, Settings } from "lucide-react";
+import { PanelLeft, PlayCircle, Bot, FileCheck } from "lucide-react";
 
 const menuItems = [
   { href: "/", title: "Scenario Player", icon: PlayCircle },

@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Send, Bot, User, Loader2, CheckCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Send, Bot, User, Loader2, CheckCircle, Zap, AlertCircle } from 'lucide-react';
+import { useWorkflow } from './WorkflowManager';
 
 // Simple interfaces to avoid import issues
 interface SimpleChatMessage {
@@ -24,18 +26,19 @@ interface SimpleChatBotProps {
   onScenarioGenerated?: (files: Record<string, string>) => void;
 }
 
-const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated }) => {
+const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated: _onScenarioGenerated }) => {
+  const { startGenerateAndValidate, startCompleteWorkflow, state: workflowState } = useWorkflow();
+  
   const [messages, setMessages] = useState<SimpleChatMessage[]>([
     {
       role: 'assistant',
-      content: 'Hello! I\'m your AI assistant for creating ASAM OpenSCENARIO files. Describe the driving scenario you want to create, and I\'ll help you build it step by step.',
+      content: 'Hello! I\'m your AI assistant for creating ASAM OpenSCENARIO files. Describe the driving scenario you want to create, and I\'ll help you build it step by step. I can now automatically validate your generated files!',
       timestamp: new Date().toISOString()
     }
   ]);
   
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [extractedParameters, setExtractedParameters] = useState<any>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -114,7 +117,7 @@ const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated }) =>
     let scenarioParams = extractedParameters;
     
     if (!scenarioParams) {
-      const conversationText = messages.map(m => m.content).join(' ');
+      const _conversationText = messages.map(m => m.content).join(' ');
       
       // Extract basic info from conversation for mock generation
       scenarioParams = {
@@ -162,48 +165,104 @@ const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated }) =>
       };
     }
 
-    setIsGenerating(true);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          parameters: scenarioParams,
-          generate_variations: false,
-          output_format: '1.2'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Use integrated workflow for generation and validation
+      await startGenerateAndValidate(scenarioParams);
       
-      if (data.success) {
-        alert('Scenario generated successfully!');
-        onScenarioGenerated?.(data.scenario_files);
-        
-        // Add success message to chat
-        const successMessage: SimpleChatMessage = {
-          role: 'assistant',
-          content: `Great! I've successfully generated your scenario files:\n\n${Object.keys(data.scenario_files).map(filename => `• ${filename}`).join('\n')}\n\nYou can download them from the right panel.`,
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, successMessage]);
-        
-      } else {
-        throw new Error(data.error_message || 'Generation failed');
-      }
+      // Add workflow start message to chat
+      const workflowMessage: SimpleChatMessage = {
+        role: 'assistant',
+        content: `Perfect! I'm now generating and validating your scenario using our integrated workflow. You can track the progress below and see real-time updates as I:\n\n1. 🔧 Generate the scenario files\n2. ✅ Validate the files automatically\n3. 📁 Prepare them for download\n\nNo more manual steps - everything happens seamlessly!`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, workflowMessage]);
       
     } catch (error) {
-      console.error('Error generating scenario:', error);
-      alert('Failed to generate scenario. Please try again.');
-    } finally {
-      setIsGenerating(false);
+      console.error('Error starting workflow:', error);
+      
+      const errorMessage: SimpleChatMessage = {
+        role: 'assistant',
+        content: `I encountered an error starting the workflow: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const handleGenerateWithVisualization = async () => {
+    // If no extracted parameters, create basic ones from conversation
+    let scenarioParams = extractedParameters;
+    
+    if (!scenarioParams) {
+      const _conversationText = messages.map(m => m.content).join(' ');
+      
+      // Extract basic info from conversation
+      scenarioParams = {
+        scenario_name: "Highway_Overtaking_Scenario",
+        description: "Highway overtaking scenario based on conversation",
+        road_network: {
+          road_description: "Two-lane highway",
+          generate_simple_road: true
+        },
+        vehicles: [
+          {
+            name: "ego",
+            category: "car",
+            bounding_box: { width: 2.0, length: 5.0, height: 1.8 },
+            performance: {
+              max_speed: 50.0,
+              max_acceleration: 5.0,
+              max_deceleration: 8.0
+            },
+            initial_speed: 27.8
+          },
+          {
+            name: "truck",
+            category: "truck", 
+            bounding_box: { width: 2.5, length: 10.0, height: 3.0 },
+            performance: {
+              max_speed: 40.0,
+              max_acceleration: 3.0,
+              max_deceleration: 6.0
+            },
+            initial_speed: 22.2
+          }
+        ],
+        events: [],
+        environment: {
+          weather: "dry",
+          time_of_day: "day",
+          precipitation: 0.0,
+          visibility: 1000.0,
+          wind_speed: 0.0
+        },
+        openscenario_version: "1.2",
+        ncap_compliance: true,
+        parameter_variations: {}
+      };
+    }
+
+    try {
+      // Use complete workflow including visualization preparation
+      await startCompleteWorkflow(scenarioParams);
+      
+      // Add workflow start message to chat
+      const workflowMessage: SimpleChatMessage = {
+        role: 'assistant',
+        content: `Excellent! I'm running the complete workflow including 3D visualization preparation. This includes:\n\n1. 🔧 Generate scenario files\n2. ✅ Validate all files\n3. 🎯 Prepare 3D visualization data\n4. 📁 Package everything for you\n\nThis may take a bit longer, but you'll get everything ready for 3D viewing!`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, workflowMessage]);
+      
+    } catch (error) {
+      console.error('Error starting complete workflow:', error);
+      
+      const errorMessage: SimpleChatMessage = {
+        role: 'assistant',
+        content: `I encountered an error starting the complete workflow: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
@@ -332,29 +391,68 @@ const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated }) =>
               </Button>
             </div>
             
-            {/* Generate Button */}
+            {/* Generate Buttons */}
             {(isComplete && extractedParameters) || messages.length >= 8 ? (
-              <div className="mt-3">
+              <div className="mt-3 space-y-2">
+                {/* Quick Generate & Validate */}
                 <Button
                   onClick={handleGenerateScenario}
-                  disabled={isGenerating}
+                  disabled={workflowState.isLoading}
                   className="w-full"
+                  variant="default"
                 >
-                  {isGenerating ? (
+                  {workflowState.isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating Files...
+                      Processing Workflow...
                     </>
                   ) : (
                     <>
-                      Generate Scenario Files
+                      <Zap className="w-4 h-4 mr-2" />
+                      Generate & Validate
                     </>
                   )}
                 </Button>
+                
+                {/* Complete Workflow with Visualization */}
+                <Button
+                  onClick={handleGenerateWithVisualization}
+                  disabled={workflowState.isLoading}
+                  className="w-full"
+                  variant="secondary"
+                >
+                  {workflowState.isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing Complete Workflow...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Complete Workflow + 3D Prep
+                    </>
+                  )}
+                </Button>
+                
                 {!isComplete && (
                   <p className="text-xs text-gray-500 mt-1 text-center">
                     Generating with current conversation details
                   </p>
+                )}
+                
+                {/* Workflow Status Alert */}
+                {workflowState.sessionId && (
+                  <Alert className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Workflow active: {workflowState.status}
+                      {workflowState.errorMessage && (
+                        <span className="text-red-600 block mt-1">
+                          Error: {workflowState.errorMessage}
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             ) : null}

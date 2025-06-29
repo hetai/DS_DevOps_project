@@ -76,6 +76,18 @@ npm run lint
 
 # Preview production build
 npm run preview
+
+# Run unit tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run E2E tests
+npm run test:e2e
+
+# Run E2E tests in UI mode
+npm run test:e2e:ui
 ```
 
 ### Backend Development
@@ -90,8 +102,23 @@ source venv/bin/activate  # Linux/macOS
 # Install dependencies
 pip install -r requirements.txt
 
+# Install test dependencies
+pip install -r requirements-test.txt
+
 # Start development server
 uvicorn main:app --reload --host 0.0.0.0 --port 8080
+
+# Run unit tests
+pytest
+
+# Run tests with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_workflow_service.py
+
+# Run tests with verbose output
+pytest -v
 ```
 
 ### Infrastructure Commands
@@ -113,14 +140,17 @@ ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 ### High-Level Structure
 
 - **Frontend**: React + TypeScript application using Vite, Tailwind CSS, and shadcn/ui components
-- **Backend**: FastAPI application with OpenSCENARIO validation capabilities
+- **Backend**: FastAPI application with OpenSCENARIO validation capabilities and integrated workflow management
 - **Infrastructure**: Terraform modules for AWS ECS, RDS, ECR, and networking
 - **Deployment**: Docker containers with Nginx reverse proxy, Ansible playbooks for configuration management
+- **Testing**: Comprehensive test suite with Vitest (frontend), pytest (backend), and Playwright (E2E)
 
 ### Key Components
 
-- **Frontend Service**: Containerized React app served by Nginx
-- **Backend Service**: FastAPI application handling file validation
+- **Frontend Service**: Containerized React app served by Nginx with 3D visualization capabilities
+- **Backend Service**: FastAPI application with workflow orchestration, file validation, and AI integration
+- **Workflow Manager**: Centralized orchestrator for multi-step scenario operations (generation → validation → visualization)
+- **3D Visualization**: Three.js-based components for OpenDRIVE/OpenSCENARIO rendering
 - **OpenSCENARIO Validator**: C++ executable integrated into backend for validation
 - **Database**: PostgreSQL for persistent storage (configured but not actively used in current implementation)
 - **Load Balancer**: Application Load Balancer routing traffic between services
@@ -129,7 +159,13 @@ ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 
 - Frontend communicates with backend via REST API at `/api` endpoints
 - Backend provides health check endpoint at `/health`
-- File validation handled through `/api/validate` endpoint
+- File validation handled through `/api/validate` and `/api/validate-pair` endpoints
+- Integrated workflow endpoints:
+  - `/api/workflow/complete` - Full generation → validation → visualization workflow
+  - `/api/workflow/generate-and-validate` - Generation and validation workflow
+  - `/api/workflow/{session_id}/status` - Workflow status polling
+  - `/api/workflow/{session_id}/files` - Retrieve generated files
+  - `/api/workflow/{session_id}/validation` - Retrieve validation results
 
 ### AWS Deployment Architecture
 
@@ -154,7 +190,13 @@ ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 ## File Structure
 
 - `app/frontend/scenario-tool-suite/`: React frontend application
+  - `src/components/workflow/`: Integrated workflow management components
+  - `src/components/visualization/`: 3D visualization components (Three.js)
+  - `src/test/`: Frontend test suites (Vitest)
+  - `e2e/`: End-to-end test suites (Playwright)
 - `app/backend/openscenario-api-service/`: FastAPI backend service
+  - `app/workflow_service.py`: Workflow orchestration and management
+  - `tests/`: Backend test suites (pytest)
 - `terraform/`: Infrastructure as Code using Terraform modules
 - `ansible/`: Configuration management and deployment automation
 - `docker-compose.*.yml`: Container orchestration files for different environments
@@ -164,10 +206,12 @@ ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 
 - The project uses a microservices architecture with separate frontend and backend services
 - OpenSCENARIO validator is a C++ executable that must be available in the backend container
-- Frontend uses React Router for navigation and React Query for API state management
-- Backend is minimal FastAPI application with basic health check and validation endpoints
+- Frontend uses React Router for navigation, React Query for API state management, and Three.js for 3D visualization
+- Backend includes comprehensive workflow orchestration with status tracking and file management
+- Integrated workflow system provides seamless generation → validation → visualization pipeline
 - Terraform modules are organized by service (networking, ecr, rds, ecs_service, etc.)
 - Ansible playbooks handle server configuration and service deployment
+- Comprehensive testing infrastructure with unit tests, integration tests, and E2E tests
 
 ## Ports
 
@@ -175,3 +219,34 @@ ansible-playbook -i inventory/production/hosts.yml playbooks/site.yml
 - Frontend (production): 8081
 - Backend: 8080
 - Traefik (when used): 8008, 8081
+
+## Testing Strategy
+
+### Frontend Testing
+- **Unit Tests**: Vitest for component and utility testing
+- **Integration Tests**: React Testing Library for component interaction testing
+- **E2E Tests**: Playwright for full application workflow testing
+- **Test Coverage**: Comprehensive coverage of workflow components and 3D visualization
+
+### Backend Testing
+- **Unit Tests**: pytest for service and utility testing
+- **Integration Tests**: FastAPI test client for endpoint testing
+- **Test Coverage**: Workflow orchestration, validation services, and AI integration
+
+### Test Commands
+```bash
+# Frontend tests
+npm run test              # Run all unit tests
+npm run test:watch        # Watch mode for development
+npm run test:e2e          # End-to-end tests
+
+# Backend tests
+pytest                    # Run all tests
+pytest --cov=app          # With coverage
+pytest -v                 # Verbose output
+```
+
+## Leveraging Gemini
+- Large Codebase Analysis : Using gemini -p "analyze this codebase structure" to get comprehensive overviews
+- Architecture Understanding : Leveraging Gemini's ability to process large amounts of code context
+- Pattern Recognition : Identifying common patterns and conventions across the project

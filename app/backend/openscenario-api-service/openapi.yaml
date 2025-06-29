@@ -1,0 +1,1253 @@
+components:
+  schemas:
+    Action:
+      properties:
+        delay:
+          default: 0.0
+          description: Action start delay in seconds
+          title: Delay
+          type: number
+        lane_change_action:
+          anyOf:
+          - $ref: '#/components/schemas/LaneChangeAction'
+          - type: 'null'
+          description: Lane change parameters
+        speed_action:
+          anyOf:
+          - $ref: '#/components/schemas/SpeedAction'
+          - type: 'null'
+          description: Speed action parameters
+        type:
+          description: Action type
+          enum:
+          - speed
+          - lane_change
+          - teleport
+          title: Type
+          type: string
+      required:
+      - type
+      title: Action
+      type: object
+    Body_validate_scenario_api_validate_post:
+      properties:
+        file:
+          format: binary
+          title: File
+          type: string
+      required:
+      - file
+      title: Body_validate_scenario_api_validate_post
+      type: object
+    Body_validate_scenario_pair_api_validate_pair_post:
+      properties:
+        files:
+          items:
+            format: binary
+            type: string
+          title: Files
+          type: array
+      required:
+      - files
+      title: Body_validate_scenario_pair_api_validate_pair_post
+      type: object
+    BoundingBox:
+      properties:
+        height:
+          description: Vehicle height in meters
+          title: Height
+          type: number
+        length:
+          description: Vehicle length in meters
+          title: Length
+          type: number
+        width:
+          description: Vehicle width in meters
+          title: Width
+          type: number
+      required:
+      - width
+      - length
+      - height
+      title: BoundingBox
+      type: object
+    ChatMessage:
+      properties:
+        content:
+          description: Message content
+          title: Content
+          type: string
+        role:
+          description: Message sender role
+          enum:
+          - user
+          - assistant
+          title: Role
+          type: string
+        timestamp:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Message timestamp
+          title: Timestamp
+      required:
+      - role
+      - content
+      title: ChatMessage
+      type: object
+    ChatRequest:
+      properties:
+        conversation_history:
+          description: Previous conversation
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          title: Conversation History
+          type: array
+        message:
+          description: User message
+          title: Message
+          type: string
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Conversation session ID
+          title: Session Id
+      required:
+      - message
+      title: ChatRequest
+      type: object
+    ChatResponse:
+      properties:
+        is_complete:
+          default: false
+          description: Whether scenario is complete and ready for generation
+          title: Is Complete
+          type: boolean
+        message:
+          description: Assistant response
+          title: Message
+          type: string
+        parameters_extracted:
+          anyOf:
+          - $ref: '#/components/schemas/ScenarioParameters-Output'
+          - type: 'null'
+          description: Extracted scenario parameters
+        suggestions:
+          description: Suggested follow-up questions or clarifications
+          items:
+            type: string
+          title: Suggestions
+          type: array
+      required:
+      - message
+      title: ChatResponse
+      type: object
+    CompleteWorkflowRequest:
+      properties:
+        session_id:
+          minLength: 1
+          title: Session Id
+          type: string
+      required:
+      - session_id
+      title: CompleteWorkflowRequest
+      type: object
+    Condition:
+      properties:
+        rule:
+          description: Comparison rule
+          enum:
+          - greaterThan
+          - lessThan
+          - equalTo
+          title: Rule
+          type: string
+        type:
+          description: Condition type
+          enum:
+          - simulation_time
+          - traveled_distance
+          - relative_speed
+          title: Type
+          type: string
+        value:
+          description: Condition threshold value
+          title: Value
+          type: number
+      required:
+      - type
+      - value
+      - rule
+      title: Condition
+      type: object
+    EnvironmentalConditions:
+      properties:
+        precipitation:
+          default: 0.0
+          description: Precipitation intensity (0.0-1.0)
+          title: Precipitation
+          type: number
+        time_of_day:
+          allOf:
+          - $ref: '#/components/schemas/TimeOfDay'
+          default: day
+          description: Time of day
+        visibility:
+          default: 1000.0
+          description: Visibility range in meters
+          title: Visibility
+          type: number
+        weather:
+          allOf:
+          - $ref: '#/components/schemas/WeatherCondition'
+          default: dry
+          description: Weather conditions
+        wind_speed:
+          default: 0.0
+          description: Wind speed in m/s
+          title: Wind Speed
+          type: number
+      title: EnvironmentalConditions
+      type: object
+    Event-Input:
+      properties:
+        actions:
+          description: Actions to execute
+          items:
+            $ref: '#/components/schemas/Action'
+          title: Actions
+          type: array
+        name:
+          description: Event name
+          title: Name
+          type: string
+        priority:
+          default: overwrite
+          description: Event priority
+          enum:
+          - overwrite
+          - skip
+          - parallel
+          title: Priority
+          type: string
+        start_conditions:
+          description: Conditions to start event
+          items:
+            $ref: '#/components/schemas/Condition'
+          title: Start Conditions
+          type: array
+      required:
+      - name
+      - actions
+      - start_conditions
+      title: Event
+      type: object
+    Event-Output:
+      properties:
+        actions:
+          description: Actions to execute
+          items:
+            $ref: '#/components/schemas/Action'
+          title: Actions
+          type: array
+        name:
+          description: Event name
+          title: Name
+          type: string
+        priority:
+          default: overwrite
+          description: Event priority
+          enum:
+          - overwrite
+          - skip
+          - parallel
+          title: Priority
+          type: string
+        start_conditions:
+          description: Conditions to start event
+          items:
+            $ref: '#/components/schemas/Condition'
+          title: Start Conditions
+          type: array
+      required:
+      - name
+      - actions
+      - start_conditions
+      title: Event
+      type: object
+    GenerationRequest:
+      properties:
+        generate_variations:
+          default: false
+          description: Generate parameter variations
+          title: Generate Variations
+          type: boolean
+        output_format:
+          default: '1.2'
+          description: OpenSCENARIO version
+          enum:
+          - '1.0'
+          - '1.1'
+          - '1.2'
+          - '1.3'
+          title: Output Format
+          type: string
+        parameters:
+          allOf:
+          - $ref: '#/components/schemas/ScenarioParameters-Input'
+          description: Complete scenario parameters
+      required:
+      - parameters
+      title: GenerationRequest
+      type: object
+    GenerationResponse:
+      properties:
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Error message if generation failed
+          title: Error Message
+        scenario_files:
+          additionalProperties:
+            type: string
+          description: Generated files (filename -> content)
+          title: Scenario Files
+          type: object
+        success:
+          description: Generation success status
+          title: Success
+          type: boolean
+        validation_results:
+          anyOf:
+          - $ref: '#/components/schemas/ValidationResult'
+          - type: 'null'
+          description: Validation results
+        variations:
+          description: Generated variations
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          title: Variations
+          type: array
+      required:
+      - success
+      title: GenerationResponse
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    LaneChangeAction:
+      properties:
+        duration:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: Lane change duration in seconds
+          title: Duration
+        target_lane_offset:
+          description: Number of lanes to change (+ for left, - for right)
+          title: Target Lane Offset
+          type: integer
+        transition_dynamics:
+          default: sinusoidal
+          description: Lane change dynamics
+          title: Transition Dynamics
+          type: string
+      required:
+      - target_lane_offset
+      title: LaneChangeAction
+      type: object
+    LanePosition:
+      properties:
+        lane_id:
+          description: Lane ID (negative for right lanes, positive for left)
+          title: Lane Id
+          type: integer
+        offset:
+          default: 0.0
+          description: Lateral offset from lane center in meters
+          title: Offset
+          type: number
+        road_id:
+          description: Road ID from OpenDRIVE
+          title: Road Id
+          type: string
+        s:
+          description: Position along road centerline in meters
+          title: S
+          type: number
+      required:
+      - road_id
+      - lane_id
+      - s
+      title: LanePosition
+      type: object
+    Performance:
+      properties:
+        max_acceleration:
+          description: Maximum acceleration in m/s²
+          title: Max Acceleration
+          type: number
+        max_deceleration:
+          description: Maximum deceleration in m/s²
+          title: Max Deceleration
+          type: number
+        max_speed:
+          description: Maximum speed in m/s
+          title: Max Speed
+          type: number
+      required:
+      - max_speed
+      - max_acceleration
+      - max_deceleration
+      title: Performance
+      type: object
+    RoadNetwork:
+      properties:
+        generate_simple_road:
+          default: true
+          description: Generate simple road if no OpenDRIVE file
+          title: Generate Simple Road
+          type: boolean
+        opendrive_file:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: OpenDRIVE file path
+          title: Opendrive File
+        road_description:
+          description: Natural language description of road network
+          title: Road Description
+          type: string
+      required:
+      - road_description
+      title: RoadNetwork
+      type: object
+    ScenarioParameters-Input:
+      description: Complete ASAM OpenX scenario parameters extracted from natural
+        language
+      properties:
+        description:
+          description: Detailed scenario description
+          title: Description
+          type: string
+        environment:
+          allOf:
+          - $ref: '#/components/schemas/EnvironmentalConditions'
+          description: Environmental conditions
+        events:
+          description: Sequence of events in the scenario
+          items:
+            $ref: '#/components/schemas/Event-Input'
+          title: Events
+          type: array
+        ncap_compliance:
+          default: true
+          description: Ensure NCAP compliance
+          title: Ncap Compliance
+          type: boolean
+        openscenario_version:
+          default: '1.2'
+          description: OpenSCENARIO version to generate
+          title: Openscenario Version
+          type: string
+        parameter_variations:
+          description: Parameter ranges for variations
+          title: Parameter Variations
+          type: object
+        road_network:
+          allOf:
+          - $ref: '#/components/schemas/RoadNetwork'
+          description: Road network configuration
+        scenario_name:
+          description: Scenario name/title
+          title: Scenario Name
+          type: string
+        vehicles:
+          description: All vehicles in the scenario
+          items:
+            $ref: '#/components/schemas/Vehicle'
+          title: Vehicles
+          type: array
+      required:
+      - scenario_name
+      - description
+      - road_network
+      - vehicles
+      - events
+      title: ScenarioParameters
+      type: object
+    ScenarioParameters-Output:
+      description: Complete ASAM OpenX scenario parameters extracted from natural
+        language
+      properties:
+        description:
+          description: Detailed scenario description
+          title: Description
+          type: string
+        environment:
+          allOf:
+          - $ref: '#/components/schemas/EnvironmentalConditions'
+          description: Environmental conditions
+        events:
+          description: Sequence of events in the scenario
+          items:
+            $ref: '#/components/schemas/Event-Output'
+          title: Events
+          type: array
+        ncap_compliance:
+          default: true
+          description: Ensure NCAP compliance
+          title: Ncap Compliance
+          type: boolean
+        openscenario_version:
+          default: '1.2'
+          description: OpenSCENARIO version to generate
+          title: Openscenario Version
+          type: string
+        parameter_variations:
+          description: Parameter ranges for variations
+          title: Parameter Variations
+          type: object
+        road_network:
+          allOf:
+          - $ref: '#/components/schemas/RoadNetwork'
+          description: Road network configuration
+        scenario_name:
+          description: Scenario name/title
+          title: Scenario Name
+          type: string
+        vehicles:
+          description: All vehicles in the scenario
+          items:
+            $ref: '#/components/schemas/Vehicle'
+          title: Vehicles
+          type: array
+      required:
+      - scenario_name
+      - description
+      - road_network
+      - vehicles
+      - events
+      title: ScenarioParameters
+      type: object
+    SpeedAction:
+      properties:
+        duration:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: Transition duration in seconds
+          title: Duration
+        target_speed:
+          description: Target speed in m/s
+          title: Target Speed
+          type: number
+        transition_dynamics:
+          default: linear
+          description: Speed transition type
+          title: Transition Dynamics
+          type: string
+      required:
+      - target_speed
+      title: SpeedAction
+      type: object
+    TimeOfDay:
+      enum:
+      - day
+      - night
+      - dawn
+      - dusk
+      title: TimeOfDay
+      type: string
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
+    ValidationResult:
+      properties:
+        file_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Name of validated file
+          title: File Name
+        messages:
+          description: Validation messages
+          items:
+            type: object
+          title: Messages
+          type: array
+        valid:
+          description: Whether the file is valid
+          title: Valid
+          type: boolean
+      required:
+      - valid
+      title: ValidationResult
+      type: object
+    Vehicle:
+      properties:
+        bounding_box:
+          allOf:
+          - $ref: '#/components/schemas/BoundingBox'
+          description: Vehicle dimensions
+        category:
+          allOf:
+          - $ref: '#/components/schemas/VehicleCategory'
+          description: Vehicle category
+        initial_position:
+          anyOf:
+          - $ref: '#/components/schemas/LanePosition'
+          - type: 'null'
+          description: Initial lane position
+        initial_speed:
+          default: 0.0
+          description: Initial speed in m/s
+          title: Initial Speed
+          type: number
+        name:
+          description: Unique vehicle identifier
+          title: Name
+          type: string
+        performance:
+          allOf:
+          - $ref: '#/components/schemas/Performance'
+          description: Vehicle performance characteristics
+      required:
+      - name
+      - category
+      - bounding_box
+      - performance
+      title: Vehicle
+      type: object
+    VehicleCategory:
+      enum:
+      - car
+      - van
+      - truck
+      - semitrailer
+      - bus
+      - motorbike
+      - bicycle
+      - pedestrian
+      title: VehicleCategory
+      type: string
+    WeatherCondition:
+      enum:
+      - dry
+      - wet
+      - foggy
+      - snowy
+      title: WeatherCondition
+      type: string
+    WorkflowRequest:
+      properties:
+        auto_validate:
+          default: true
+          description: Automatically validate after generation
+          title: Auto Validate
+          type: boolean
+        parameters:
+          allOf:
+          - $ref: '#/components/schemas/ScenarioParameters-Input'
+          description: Scenario parameters for workflow
+        prepare_visualization:
+          default: false
+          description: Prepare data for 3D visualization
+          title: Prepare Visualization
+          type: boolean
+      required:
+      - parameters
+      title: WorkflowRequest
+      type: object
+    WorkflowResponse:
+      properties:
+        created_at:
+          description: Workflow creation timestamp
+          title: Created At
+          type: string
+        current_step:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Current workflow step
+          title: Current Step
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Error message if workflow failed
+          title: Error Message
+        error_step:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Step where error occurred
+          title: Error Step
+        progress:
+          description: Progress percentage (0.0 to 1.0)
+          title: Progress
+          type: number
+        scenario_files:
+          additionalProperties:
+            type: string
+          description: Generated scenario files
+          title: Scenario Files
+          type: object
+        session_id:
+          description: Workflow session identifier
+          title: Session Id
+          type: string
+        status:
+          description: Current workflow status
+          title: Status
+          type: string
+        updated_at:
+          description: Last update timestamp
+          title: Updated At
+          type: string
+        validation_results:
+          description: Validation results by filename
+          title: Validation Results
+          type: object
+        visualization_metadata:
+          anyOf:
+          - type: object
+          - type: 'null'
+          description: Metadata for 3D visualization
+          title: Visualization Metadata
+      required:
+      - session_id
+      - status
+      - progress
+      - created_at
+      - updated_at
+      title: WorkflowResponse
+      type: object
+    WorkflowSummary:
+      properties:
+        created_at:
+          description: Workflow creation timestamp
+          title: Created At
+          type: string
+        current_step:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Current workflow step
+          title: Current Step
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Error message if workflow failed
+          title: Error Message
+        error_step:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Step where error occurred
+          title: Error Step
+        file_count:
+          description: Number of generated files
+          title: File Count
+          type: integer
+        has_files:
+          description: Whether workflow has generated files
+          title: Has Files
+          type: boolean
+        has_validation:
+          description: Whether workflow has validation results
+          title: Has Validation
+          type: boolean
+        progress:
+          description: Progress percentage (0.0 to 1.0)
+          title: Progress
+          type: number
+        session_id:
+          description: Workflow session identifier
+          title: Session Id
+          type: string
+        status:
+          description: Current workflow status
+          title: Status
+          type: string
+        updated_at:
+          description: Last update timestamp
+          title: Updated At
+          type: string
+      required:
+      - session_id
+      - status
+      - progress
+      - created_at
+      - updated_at
+      - has_files
+      - has_validation
+      - file_count
+      title: WorkflowSummary
+      type: object
+  securitySchemes:
+    ApiKeyAuth:
+      description: API key authentication (future implementation)
+      in: header
+      name: X-API-Key
+      type: apiKey
+    BearerAuth:
+      bearerFormat: JWT
+      description: JWT Bearer token authentication (future implementation)
+      scheme: bearer
+      type: http
+info:
+  description: "\n# AI-Enhanced ASAM OpenX Scenario Generation API\n\nThis API provides\
+    \ AI-powered conversational scenario generation and validation for ASAM OpenX\
+    \ standards (OpenSCENARIO and OpenDRIVE).\n\n## Features\n\n- **\U0001F916 Conversational\
+    \ AI**: Natural language scenario description using OpenAI GPT-4\n- **\U0001F527\
+    \ Scenario Generation**: Real OpenSCENARIO (.xosc) and OpenDRIVE (.xodr) file\
+    \ generation using pyoscx\n- **✅ Comprehensive Validation**: ASAM Quality Checker\
+    \ Framework integration with multiple validation levels\n- **\U0001F3AF Integrated\
+    \ Workflow**: Seamless generation → validation → visualization pipeline\n- **\U0001F4CA\
+    \ 3D Visualization Support**: Metadata preparation for Three.js-based 3D rendering\n\
+    - **\U0001F9EA NCAP Compliance**: Euro NCAP test scenario generation and validation\n\
+    \n## API Usage Flow\n\n1. **Chat with AI** (`/api/chat`) - Describe your scenario\
+    \ in natural language\n2. **Generate Scenario** (`/api/generate`) - Create OpenSCENARIO/OpenDRIVE\
+    \ files\n3. **Validate Files** (`/api/validate` or `/api/validate-pair`) - Ensure\
+    \ ASAM compliance\n4. **Integrated Workflow** (`/api/workflow/*`) - Execute complete\
+    \ pipeline automatically\n\n## Authentication\n\nCurrently no authentication required.\
+    \ API is designed for internal use with proper network security.\n\n## Rate Limits\n\
+    \n- Chat endpoints: Limited by OpenAI API quotas\n- Generation endpoints: No specific\
+    \ limits\n- Validation endpoints: No specific limits\n\n## Error Handling\n\n\
+    All endpoints return structured error responses with:\n- HTTP status codes (400,\
+    \ 404, 422, 500)\n- Detailed error messages\n- Context-specific error information\n\
+    \        "
+  title: AI-Enhanced OpenSCENARIO API
+  version: 1.0.0
+openapi: 3.1.0
+paths:
+  /:
+    get:
+      description: Get basic API information, version, and available endpoints
+      operationId: read_root__get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: API Information
+      tags:
+      - Core
+  /api/chat:
+    post:
+      description: "\n        Engage in natural language conversation to extract scenario\
+        \ parameters.\n        \n        The AI assistant will:\n        - Ask clarifying\
+        \ questions about your scenario\n        - Extract technical parameters from\
+        \ natural language\n        - Determine when enough information is collected\n\
+        \        - Provide suggestions for scenario improvements\n        \n     \
+        \   **Example conversation flow:**\n        1. User: \"Create a highway overtaking\
+        \ scenario\"\n        2. AI: \"I'd like to help you create a highway overtaking\
+        \ scenario. Could you tell me more about...\"\n        3. User provides details\
+        \ about vehicles, speeds, conditions\n        4. AI extracts parameters and\
+        \ asks for missing information\n        5. When complete, `is_complete` becomes\
+        \ `true` and `parameters_extracted` contains full scenario data\n        "
+      operationId: chat_with_ai_api_chat_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                complete_response:
+                  summary: Complete scenario extracted
+                  value:
+                    is_complete: true
+                    message: Perfect! I have all the information needed to generate
+                      your highway overtaking scenario.
+                    parameters_extracted:
+                      description: A sedan overtakes a slower truck on a 2-lane highway
+                      scenario_name: Highway Overtaking Scenario
+                      vehicles:
+                      - category: car
+                        initial_speed: 25.0
+                        name: ego
+                    suggestions: []
+                initial_response:
+                  summary: Initial AI response
+                  value:
+                    is_complete: false
+                    message: I'd like to help you create a highway overtaking scenario.
+                      Could you tell me more about the vehicles involved and their
+                      initial speeds?
+                    parameters_extracted: null
+                    suggestions:
+                    - What type of vehicles are involved? (car, truck, etc.)
+                    - What are their initial speeds?
+                    - What are the road conditions?
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Conversational AI Chat
+      tags:
+      - Chat
+  /api/generate:
+    post:
+      description: "\n        Generate OpenSCENARIO (.xosc) and OpenDRIVE (.xodr)\
+        \ files from scenario parameters.\n        \n        Uses the pyoscx library\
+        \ for ASAM-compliant file generation:\n        - Creates realistic vehicle\
+        \ models with proper physics\n        - Generates road networks (highways,\
+        \ intersections, custom roads)\n        - Implements event and action systems\n\
+        \        - Supports multiple OpenSCENARIO versions\n        \n        **Input**:\
+        \ Complete scenario parameters from chat extraction\n        **Output**: Dictionary\
+        \ of generated files (filename -> content)\n        "
+      operationId: generate_scenario_api_generate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                successful_generation:
+                  summary: Successful file generation
+                  value:
+                    error_message: null
+                    scenario_files:
+                      Highway_Overtaking_Scenario.xodr: <?xml version="1.0" encoding="UTF-8"?>\n<OpenDRIVE>...
+                      Highway_Overtaking_Scenario.xosc: <?xml version="1.0" encoding="UTF-8"?>\n<OpenSCENARIO>...
+                    success: true
+                    validation_results: null
+                    variations: []
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Generate Scenario Files
+      tags:
+      - Generation
+  /api/status:
+    get:
+      description: "\n        Get comprehensive API and service status information.\n\
+        \        \n        **Returns**:\n        - API operational status\n      \
+        \  - OpenAI configuration status\n        - Scenario generator availability\n\
+        \        - Validation service capabilities\n        - Available endpoints\n\
+        \        \n        **Use case**: Service health monitoring and capability\
+        \ detection\n        "
+      operationId: get_api_status_api_status_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Service Status
+      tags:
+      - Core
+  /api/validate:
+    post:
+      description: "\n        Validate a single OpenSCENARIO (.xosc) or OpenDRIVE\
+        \ (.xodr) file.\n        \n        Validation levels (automatic detection):\n\
+        \        1. **ASAM QCF**: Full Quality Checker Framework validation (if available)\n\
+        \        2. **Enhanced XML**: Schema validation with domain-specific rules\n\
+        \        3. **Basic XML**: Fallback XML syntax validation\n        \n    \
+        \    **Supported files**: .xosc, .xodr\n        **Output**: Validation results\
+        \ with error details, line numbers, and rule IDs\n        "
+      operationId: validate_scenario_api_validate_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_validate_scenario_api_validate_post'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              examples:
+                invalid_file:
+                  summary: Invalid file with errors
+                  value:
+                    messages:
+                    - column: 8
+                      file_path: scenario.xosc
+                      level: ERROR
+                      line: 15
+                      message: Missing required attribute 'name' in Vehicle element
+                      rule_id: ASAM_OSC_001
+                    summary:
+                      total_errors: 1
+                      total_info: 0
+                      total_warnings: 0
+                    valid: false
+                valid_file:
+                  summary: Valid file result
+                  value:
+                    messages: []
+                    summary:
+                      total_errors: 0
+                      total_info: 1
+                      total_warnings: 0
+                    valid: true
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Validate Single File
+      tags:
+      - Validation
+  /api/validate-pair:
+    post:
+      description: "\n        Validate OpenSCENARIO and OpenDRIVE files together for\
+        \ cross-file consistency.\n        \n        Additional validation checks:\n\
+        \        - Road ID consistency between .xosc and .xodr\n        - Lane reference\
+        \ validation\n        - Entity positioning consistency\n        - Network\
+        \ topology validation\n        \n        **Required**: Exactly 2 files (.xosc\
+        \ and .xodr)\n        **Output**: Combined validation results for both files\n\
+        \        "
+      operationId: validate_scenario_pair_api_validate_pair_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_validate_scenario_pair_api_validate_pair_post'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Validate File Pair
+      tags:
+      - Validation
+  /api/workflow/complete:
+    post:
+      description: "\n        Complete a workflow session with visualization preparation.\n\
+        \        \n        Additional steps:\n        1. Prepare 3D visualization\
+        \ metadata\n        2. Extract road network geometry\n        3. Process validation\
+        \ results for visual highlighting\n        \n        **Use case**: When you\
+        \ want to visualize generated scenarios in 3D\n        **Input**: Existing\
+        \ workflow session ID\n        "
+      operationId: workflow_complete_api_workflow_complete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteWorkflowRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Complete Workflow
+      tags:
+      - Workflow
+  /api/workflow/generate-and-validate:
+    post:
+      description: "\n        Execute integrated workflow: Generation → Validation\n\
+        \        \n        Workflow steps:\n        1. Generate OpenSCENARIO and OpenDRIVE\
+        \ files from parameters\n        2. Automatically validate generated files\n\
+        \        3. Return session ID for status polling\n        \n        **Use\
+        \ case**: When you want automatic validation after generation\n        **Output**:\
+        \ Workflow session with real-time status tracking\n        "
+      operationId: workflow_generate_and_validate_api_workflow_generate_and_validate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Generate and Validate Workflow
+      tags:
+      - Workflow
+  /api/workflow/{session_id}/files:
+    get:
+      description: "\n        Retrieve generated files from a completed workflow.\n\
+        \        \n        **Returns**: Dictionary of filenames and content\n    \
+        \    **Use case**: Download generated .xosc/.xodr files\n        "
+      operationId: get_workflow_files_api_workflow__session_id__files_get
+      parameters:
+      - in: path
+        name: session_id
+        required: true
+        schema:
+          title: Session Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Workflow Files
+      tags:
+      - Workflow
+  /api/workflow/{session_id}/status:
+    get:
+      description: "\n        Get current status and progress of a workflow session.\n\
+        \        \n        **Status values**:\n        - `pending`: Workflow created\
+        \ but not started\n        - `in_progress`: Currently executing\n        -\
+        \ `completed`: Successfully finished\n        - `failed`: Error occurred\n\
+        \        \n        **Use case**: Real-time progress monitoring in UI\n   \
+        \     "
+      operationId: get_workflow_status_api_workflow__session_id__status_get
+      parameters:
+      - in: path
+        name: session_id
+        required: true
+        schema:
+          title: Session Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowSummary'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Workflow Status
+      tags:
+      - Workflow
+  /api/workflow/{session_id}/validation:
+    get:
+      description: "\n        Retrieve validation results from a workflow session.\n\
+        \        \n        **Returns**: Validation results for all generated files\n\
+        \        **Use case**: Display validation errors and warnings in UI\n    \
+        \    "
+      operationId: get_workflow_validation_api_workflow__session_id__validation_get
+      parameters:
+      - in: path
+        name: session_id
+        required: true
+        schema:
+          title: Session Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Workflow Validation
+      tags:
+      - Workflow
+  /health:
+    get:
+      description: Simple health check endpoint for monitoring
+      operationId: health_check_health_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Health Check
+      tags:
+      - Core
+tags:
+- description: Basic API status and health endpoints
+  name: Core
+- description: Conversational AI for scenario parameter extraction
+  name: Chat
+- description: OpenSCENARIO and OpenDRIVE file generation
+  name: Generation
+- description: ASAM OpenX file validation using Quality Checker Framework
+  name: Validation
+- description: Integrated scenario workflow management
+  name: Workflow

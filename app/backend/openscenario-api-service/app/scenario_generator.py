@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
 try:
@@ -13,6 +13,9 @@ except ImportError:
     xodr = None
 
 from .schemas import ScenarioParameters, Vehicle, Action, Event, RoadNetwork
+from .scenario_variations_service import scenario_variations_service
+from ..ncap_knowledge_base import NCAPKnowledgeBase
+from ..ncap_templates import NCAPTemplates
 
 class ScenarioGenerationService:
     """Service for generating ASAM OpenSCENARIO and OpenDRIVE files using pyoscx"""
@@ -26,6 +29,12 @@ class ScenarioGenerationService:
             raise ImportError("scenariogeneration library not available")
             
         try:
+            # Validate NCAP compliance if requested
+            if params.ncap_compliance:
+                validation_result = self._validate_ncap_compliance(params)
+                if not validation_result["is_compliant"]:
+                    raise ValueError(f"NCAP compliance errors: {validation_result['errors']}")
+            
             files = {}
             
             # Generate OpenDRIVE file first (needed for OpenSCENARIO)
@@ -42,6 +51,22 @@ class ScenarioGenerationService:
             
         except Exception as e:
             raise Exception(f"Scenario generation failed: {str(e)}")
+    
+    def _validate_ncap_compliance(self, params: ScenarioParameters) -> Dict[str, Any]:
+        """Validate scenario parameters against NCAP standards"""
+        # Convert parameters to dict for validation
+        param_dict = {}
+        
+        if hasattr(params, 'parameter_variations') and params.parameter_variations:
+            param_dict.update(params.parameter_variations)
+        
+        # Extract speeds from vehicles
+        if params.vehicles:
+            ego_vehicle = next((v for v in params.vehicles if v.name.lower() == "ego"), None)
+            if ego_vehicle and ego_vehicle.initial_speed:
+                param_dict["ego_speed_kph"] = ego_vehicle.initial_speed * 3.6  # Convert m/s to kph
+        
+        return NCAPKnowledgeBase.validate_ncap_compliance(param_dict)
     
     def _generate_opendrive(self, road_network: RoadNetwork) -> str:
         """Generate OpenDRIVE file content"""
@@ -359,6 +384,96 @@ class ScenarioGenerationService:
             return xosc.TraveledDistanceCondition(condition_params.value, rule)
         
         return None
+    
+    # === Scenario Variations and Batch Generation Methods ===
+    
+    def generate_parameter_variations(self, base_params: Dict[str, Any],
+                                    parameter_ranges: Optional[Dict[str, Dict[str, Any]]] = None,
+                                    parameter_sets: Optional[Dict[str, List[Any]]] = None) -> List[Dict[str, Any]]:
+        """Generate parameter variations for scenario generation
+        
+        Args:
+            base_params: Base scenario parameters
+            parameter_ranges: Parameter ranges for variation generation
+            parameter_sets: Parameter value sets for variation generation
+            
+        Returns:
+            List of parameter variation dictionaries
+        """
+        return scenario_variations_service.generate_parameter_variations(
+            base_params, parameter_ranges, parameter_sets
+        )
+    
+    def generate_ncap_test_variations(self, base_params: Dict[str, Any], 
+                                    test_type: str) -> List[Dict[str, Any]]:
+        """Generate NCAP-specific test variations
+        
+        Args:
+            base_params: Base scenario parameters
+            test_type: NCAP test type (AEB, LSS, SAS, OD)
+            
+        Returns:
+            List of NCAP-compliant parameter variations
+        """
+        return scenario_variations_service.generate_ncap_test_variations(
+            base_params, test_type
+        )
+    
+    def generate_from_template(self, template: Dict[str, Any],
+                             template_variables: Dict[str, List[Any]], 
+                             max_combinations: Optional[int] = None) -> Dict[str, Any]:
+        """Generate scenarios from a template with variable substitution
+        
+        Args:
+            template: Scenario template with ${variable} placeholders
+            template_variables: Dictionary mapping variable names to possible values
+            max_combinations: Maximum number of combinations to generate
+            
+        Returns:
+            Dictionary with generation results and scenario files
+        """
+        return scenario_variations_service.generate_from_template(
+            template, template_variables, max_combinations
+        )
+    
+    def generate_batch_scenarios(self, base_params: Dict[str, Any],
+                               variation_config: Dict[str, Any],
+                               max_scenarios: Optional[int] = None,
+                               parallel: bool = False,
+                               max_workers: Optional[int] = None,
+                               enable_caching: bool = False,
+                               streaming: bool = False,
+                               chunk_size: int = 10) -> Dict[str, Any]:
+        """Generate a batch of scenario variations
+        
+        Args:
+            base_params: Base scenario parameters
+            variation_config: Configuration for parameter variations
+            max_scenarios: Maximum number of scenarios to generate
+            parallel: Whether to use parallel generation
+            max_workers: Number of parallel workers
+            enable_caching: Whether to enable result caching
+            streaming: Whether to use streaming for large batches
+            chunk_size: Chunk size for streaming
+            
+        Returns:
+            Dictionary with batch generation results
+        """
+        return scenario_variations_service.generate_batch_scenarios(
+            base_params, variation_config, max_scenarios, parallel, 
+            max_workers, enable_caching, streaming, chunk_size
+        )
+    
+    def generate_parameter_distribution(self, distribution_config: Dict[str, Any]) -> List[float]:
+        """Generate parameter values from a statistical distribution
+        
+        Args:
+            distribution_config: Distribution configuration (type, parameters, count)
+            
+        Returns:
+            List of generated parameter values
+        """
+        return scenario_variations_service.generate_parameter_distribution(distribution_config)
 
 # Global service instance
 scenario_generator = ScenarioGenerationService()

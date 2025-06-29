@@ -118,6 +118,8 @@ class ScenarioParameters(BaseModel):
     # Additional metadata
     ncap_compliance: bool = Field(default=True, description="Ensure NCAP compliance")
     parameter_variations: Dict[str, Any] = Field(default_factory=dict, description="Parameter ranges for variations")
+    ncap_scenario_type: Optional[str] = Field(None, description="NCAP scenario type (CPNA, CCRs, CBLA, etc.)")
+    ncap_test_parameters: Dict[str, Any] = Field(default_factory=dict, description="NCAP-specific test parameters")
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"] = Field(..., description="Message sender role")
@@ -139,6 +141,8 @@ class GenerationRequest(BaseModel):
     parameters: ScenarioParameters = Field(..., description="Complete scenario parameters")
     generate_variations: bool = Field(default=False, description="Generate parameter variations")
     output_format: Literal["1.0", "1.1", "1.2", "1.3"] = Field(default="1.2", description="OpenSCENARIO version")
+    use_ncap_template: Optional[str] = Field(None, description="Use NCAP template (CPNA, CCRs, CBLA, etc.)")
+    ncap_template_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters for NCAP template")
 
 class ValidationResult(BaseModel):
     valid: bool = Field(..., description="Whether the file is valid")
@@ -151,3 +155,37 @@ class GenerationResponse(BaseModel):
     validation_results: Optional[ValidationResult] = Field(None, description="Validation results")
     variations: List[Dict[str, str]] = Field(default_factory=list, description="Generated variations")
     error_message: Optional[str] = Field(None, description="Error message if generation failed")
+    ncap_compliance: Optional[Dict[str, Any]] = Field(None, description="NCAP compliance validation results")
+    used_template: Optional[str] = Field(None, description="NCAP template used for generation")
+
+# Workflow-related schemas
+class WorkflowRequest(BaseModel):
+    parameters: ScenarioParameters = Field(..., description="Scenario parameters for workflow")
+    auto_validate: bool = Field(default=True, description="Automatically validate after generation")
+    prepare_visualization: bool = Field(default=False, description="Prepare data for 3D visualization")
+
+class WorkflowResponse(BaseModel):
+    session_id: str = Field(..., description="Workflow session identifier")
+    status: str = Field(..., description="Current workflow status")
+    current_step: Optional[str] = Field(None, description="Current workflow step")
+    progress: float = Field(..., description="Progress percentage (0.0 to 1.0)")
+    created_at: str = Field(..., description="Workflow creation timestamp")
+    updated_at: str = Field(..., description="Last update timestamp")
+    scenario_files: Dict[str, str] = Field(default_factory=dict, description="Generated scenario files")
+    validation_results: Dict[str, Any] = Field(default_factory=dict, description="Validation results by filename")
+    visualization_metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata for 3D visualization")
+    error_message: Optional[str] = Field(None, description="Error message if workflow failed")
+    error_step: Optional[str] = Field(None, description="Step where error occurred")
+
+class WorkflowSummary(BaseModel):
+    session_id: str = Field(..., description="Workflow session identifier")
+    status: str = Field(..., description="Current workflow status")
+    current_step: Optional[str] = Field(None, description="Current workflow step")
+    progress: float = Field(..., description="Progress percentage (0.0 to 1.0)")
+    created_at: str = Field(..., description="Workflow creation timestamp")
+    updated_at: str = Field(..., description="Last update timestamp")
+    has_files: bool = Field(..., description="Whether workflow has generated files")
+    has_validation: bool = Field(..., description="Whether workflow has validation results")
+    error_message: Optional[str] = Field(None, description="Error message if workflow failed")
+    error_step: Optional[str] = Field(None, description="Step where error occurred")
+    file_count: int = Field(..., description="Number of generated files")

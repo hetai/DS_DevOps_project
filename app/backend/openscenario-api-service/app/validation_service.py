@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
+# Import QCF service
+try:
+    from .asam_qcf_service import qcf_service, QCFExecutionError, NCAPTestType, QCFResult
+    HAS_QCF = True
+except ImportError:
+    qcf_service = None
+    HAS_QCF = False
+
 try:
     import xmlschema
     HAS_XMLSCHEMA = True
@@ -47,10 +55,13 @@ class ASAMValidationService:
     def __init__(self):
         self.temp_dir = tempfile.mkdtemp(prefix="asam_validation_")
         self.validation_level = self._determine_validation_level()
+        self.qcf_service = qcf_service if HAS_QCF else None
     
     def _determine_validation_level(self) -> str:
         """Determine the level of validation available"""
-        if HAS_XMLSCHEMA:
+        if HAS_QCF and qcf_service and qcf_service.is_qcf_available():
+            return "qcf_validation"
+        elif HAS_XMLSCHEMA:
             return "schema_validation"
         elif HAS_LXML:
             return "enhanced_xml"
@@ -61,7 +72,9 @@ class ASAMValidationService:
         """Validate OpenSCENARIO file with optional OpenDRIVE file"""
         try:
             # Perform validation based on available libraries
-            if self.validation_level == "schema_validation":
+            if self.validation_level == "qcf_validation":
+                return self._qcf_validate_openscenario(xosc_content, xodr_content)
+            elif self.validation_level == "schema_validation":
                 result = self._schema_validate_openscenario(xosc_content)
             elif self.validation_level == "enhanced_xml":
                 result = self._enhanced_xml_validation(xosc_content, "OpenSCENARIO")
@@ -100,7 +113,9 @@ class ASAMValidationService:
         """Validate OpenDRIVE file"""
         try:
             # Perform validation based on available libraries
-            if self.validation_level == "schema_validation":
+            if self.validation_level == "qcf_validation":
+                return self._qcf_validate_opendrive(xodr_content)
+            elif self.validation_level == "schema_validation":
                 result = self._schema_validate_opendrive(xodr_content)
             elif self.validation_level == "enhanced_xml":
                 result = self._enhanced_xml_validation(xodr_content, "OpenDRIVE")
@@ -138,7 +153,11 @@ class ASAMValidationService:
     def validate_scenario_pair(self, xosc_content: str, xodr_content: str) -> ValidationResult:
         """Validate OpenSCENARIO and OpenDRIVE files together for consistency"""
         try:
-            # First validate individually
+            # Use QCF for comprehensive validation if available
+            if self.validation_level == "qcf_validation":
+                return self._qcf_validate_scenario_pair(xosc_content, xodr_content)
+            
+            # Fallback to individual validation
             xosc_result = self.validate_openscenario(xosc_content, xodr_content)
             xodr_result = self.validate_opendrive(xodr_content)
             
@@ -511,20 +530,185 @@ class ASAMValidationService:
         
         return issues
     
+    def _qcf_validate_openscenario(self, xosc_content: str, xodr_content: Optional[str] = None) -> ValidationResult:
+        """Validate OpenSCENARIO using ASAM QCF"""
+        if not self.qcf_service or not self.qcf_service.is_qcf_available():
+            # Fallback to schema validation
+            return self._schema_validate_openscenario(xosc_content)
+        
+        try:
+            qcf_result = self.qcf_service.validate_scenario_files(
+                xosc_content=xosc_content,
+                xodr_content=xodr_content,
+                include_ncap_checkers=True
+            )
+            
+            return self._convert_qcf_result_to_validation_result(qcf_result)
+            
+        except QCFExecutionError as e:
+            # Fallback to basic validation if QCF fails
+            fallback_result = self._schema_validate_openscenario(xosc_content)
+            fallback_result.issues.append(ValidationIssue(
+                level="WARNING",
+                message=f"QCF validation failed, using fallback: {str(e)}"
+            ))
+            return fallback_result
+    
+    def _qcf_validate_opendrive(self, xodr_content: str) -> ValidationResult:
+        """Validate OpenDRIVE using ASAM QCF"""
+        if not self.qcf_service or not self.qcf_service.is_qcf_available():
+            # Fallback to schema validation
+            return self._schema_validate_opendrive(xodr_content)
+        
+        try:
+            qcf_result = self.qcf_service.validate_scenario_files(
+                xosc_content="",  # Minimal OpenSCENARIO for OpenDRIVE validation
+                xodr_content=xodr_content,
+                include_ncap_checkers=False
+            )
+            
+            return self._convert_qcf_result_to_validation_result(qcf_result)
+            
+        except QCFExecutionError as e:
+            # Fallback to basic validation if QCF fails
+            fallback_result = self._schema_validate_opendrive(xodr_content)
+            fallback_result.issues.append(ValidationIssue(
+                level="WARNING",
+                message=f"QCF validation failed, using fallback: {str(e)}"
+            ))
+            return fallback_result
+    
+    def _qcf_validate_scenario_pair(self, xosc_content: str, xodr_content: str) -> ValidationResult:
+        """Validate scenario pair using ASAM QCF with NCAP compliance"""
+        if not self.qcf_service or not self.qcf_service.is_qcf_available():
+            # Fallback to individual validation
+            return self.validate_scenario_pair(xosc_content, xodr_content)
+        
+        try:
+            # Determine NCAP test type based on scenario content
+            ncap_test_type = self._detect_ncap_test_type(xosc_content)
+            
+            qcf_result = self.qcf_service.validate_scenario_files(
+                xosc_content=xosc_content,
+                xodr_content=xodr_content,
+                include_ncap_checkers=True,
+                ncap_test_type=ncap_test_type
+            )
+            
+            return self._convert_qcf_result_to_validation_result(qcf_result)
+            
+        except QCFExecutionError as e:
+            # Fallback to basic cross-validation if QCF fails
+            fallback_result = ValidationResult(
+                is_valid=False,
+                issues=[ValidationIssue(
+                    level="ERROR",
+                    message=f"QCF validation failed: {str(e)}"
+                )],
+                total_errors=1,
+                total_warnings=0,
+                total_info=0
+            )
+            return fallback_result
+    
+    def _convert_qcf_result_to_validation_result(self, qcf_result: QCFResult) -> ValidationResult:
+        """Convert QCF result to validation result format"""
+        issues = []
+        
+        if qcf_result.xqar_report:
+            for qcf_issue in qcf_result.xqar_report.issues:
+                issues.append(ValidationIssue(
+                    level=qcf_issue.level.upper(),
+                    message=qcf_issue.description,
+                    line_number=qcf_issue.line_number,
+                    column_number=qcf_issue.column_number,
+                    rule_id=qcf_issue.checker_id,
+                    xpath=qcf_issue.xpath
+                ))
+            
+            summary = qcf_result.xqar_report.summary
+            return ValidationResult(
+                is_valid=qcf_result.is_valid,
+                issues=issues,
+                total_errors=summary.get("total_errors", 0),
+                total_warnings=summary.get("total_warnings", 0),
+                total_info=summary.get("total_info", 0),
+                report_file=qcf_result.xqar_report.report_file_path
+            )
+        else:
+            return ValidationResult(
+                is_valid=qcf_result.is_valid,
+                issues=issues,
+                total_errors=0 if qcf_result.is_valid else 1,
+                total_warnings=0,
+                total_info=0
+            )
+    
+    def _detect_ncap_test_type(self, xosc_content: str) -> Optional[NCAPTestType]:
+        """Detect NCAP test type from scenario content"""
+        try:
+            root = ET.fromstring(xosc_content)
+            
+            # Check for AEB indicators
+            speed_actions = root.findall(".//SpeedAction")
+            entities = root.findall(".//ScenarioObject")
+            
+            if len(entities) >= 2:  # Multi-vehicle scenario
+                # Check speeds to determine test type
+                for action in speed_actions:
+                    target = action.find("SpeedActionTarget/AbsoluteTargetSpeed")
+                    if target is not None:
+                        try:
+                            speed_ms = float(target.get("value", 0))
+                            speed_kmh = speed_ms * 3.6
+                            
+                            # AEB speed range: 10-80 km/h
+                            if 10 <= speed_kmh <= 80:
+                                return NCAPTestType.AEB
+                            # LSS speed range: 60-130 km/h  
+                            elif 60 <= speed_kmh <= 130:
+                                return NCAPTestType.LSS
+                            
+                        except (ValueError, TypeError):
+                            continue
+            
+            # Check for pedestrian scenarios (OD)
+            pedestrians = root.findall(".//Pedestrian")
+            if pedestrians:
+                return NCAPTestType.OD
+            
+            # Default to AEB if unclear
+            return NCAPTestType.AEB
+            
+        except ET.ParseError:
+            return None
+    
     def get_validation_capabilities(self) -> Dict[str, str]:
         """Get information about available validation capabilities"""
-        return {
+        capabilities = {
             "validation_level": self.validation_level,
             "xmlschema_available": HAS_XMLSCHEMA,
             "lxml_available": HAS_LXML,
+            "qcf_available": HAS_QCF and self.qcf_service and self.qcf_service.is_qcf_available(),
             "capabilities": {
+                "qcf_validation": "Full ASAM QCF validation with XQAR reports" if (HAS_QCF and self.qcf_service and self.qcf_service.is_qcf_available()) else "Not available",
                 "schema_validation": "Full XSD schema validation" if HAS_XMLSCHEMA else "Not available",
                 "enhanced_xml": "Enhanced XML parsing with better error reporting" if HAS_LXML else "Not available", 
                 "basic_xml": "Basic XML well-formedness validation",
                 "domain_validation": "ASAM-specific domain validation rules",
-                "cross_validation": "Cross-file consistency checks"
+                "cross_validation": "Cross-file consistency checks",
+                "ncap_compliance": "NCAP test protocol compliance checking" if (HAS_QCF and self.qcf_service) else "Not available",
+                "cartesian_coordinates": "Cartesian coordinate extraction from validation issues" if (HAS_QCF and self.qcf_service) else "Not available",
+                "xpath_extraction": "XML path extraction from validation results" if (HAS_QCF and self.qcf_service) else "Not available"
             }
         }
+        
+        # Add QCF-specific capabilities if available
+        if HAS_QCF and self.qcf_service:
+            qcf_capabilities = self.qcf_service.get_validation_capabilities()
+            capabilities["qcf_details"] = qcf_capabilities
+        
+        return capabilities
 
 # Global service instance
 validation_service = ASAMValidationService()
