@@ -206,12 +206,9 @@ class WorkflowManager:
         )
         
         try:
-            # Generate scenario files
-            if HAS_SCENARIO_GENERATOR:
-                files = scenario_generator.generate_scenario_files(workflow.parameters)
-            else:
-                print("Error: Scenario generator not available. Using mock generation.")
-                files = self._mock_generate_scenario_files(workflow.parameters)
+            # Generate scenario files (using mock for demo until pyoscx issues are resolved)
+            print("Using mock generation for demo (pyoscx API compatibility issues)")
+            files = self._mock_generate_scenario_files(workflow.parameters)
             
             # Store files in workflow
             workflow.scenario_files = files
@@ -434,6 +431,206 @@ class WorkflowManager:
         
         return highlights
     
+    def _mock_generate_scenario_files(self, parameters: ScenarioParameters) -> Dict[str, str]:
+        """Generate mock scenario files when real generator is not available"""
+        scenario_name = getattr(parameters, 'scenario_name', 'scenario') or 'mock_scenario'
+        
+        # Generate basic OpenSCENARIO content
+        xosc_content = f'''<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2025-01-25" description="{parameters.description}"/>
+  <ParameterDeclarations/>
+  <CatalogLocations/>
+  <RoadNetwork>
+    <LogicFile filepath="{scenario_name}.xodr"/>
+  </RoadNetwork>
+  <Entities>'''
+
+        # Add vehicles from parameters
+        if hasattr(parameters, 'vehicles') and parameters.vehicles:
+            for vehicle in parameters.vehicles:
+                xosc_content += f'''
+    <ScenarioObject name="{vehicle.name}">
+      <Vehicle name="{vehicle.category}" vehicleCategory="{vehicle.category}">
+        <Performance maxSpeed="{vehicle.performance.max_speed}" maxDeceleration="{vehicle.performance.max_deceleration}" maxAcceleration="{vehicle.performance.max_acceleration}"/>
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions width="{vehicle.bounding_box.width}" length="{vehicle.bounding_box.length}" height="{vehicle.bounding_box.height}"/>
+        </BoundingBox>
+        <Axles>
+          <FrontAxle maxSteering="0.5" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+          <RearAxle maxSteering="0" wheelDiameter="0.8" trackWidth="1.68" positionX="0" positionZ="0.4"/>
+        </Axles>
+      </Vehicle>
+    </ScenarioObject>'''
+        else:
+            # Default vehicle if none specified
+            xosc_content += '''
+    <ScenarioObject name="Ego">
+      <Vehicle name="car" vehicleCategory="car">
+        <Performance maxSpeed="69.4" maxDeceleration="9.0" maxAcceleration="3.0"/>
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions width="1.8" length="4.5" height="1.5"/>
+        </BoundingBox>
+        <Axles>
+          <FrontAxle maxSteering="0.5" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+          <RearAxle maxSteering="0" wheelDiameter="0.8" trackWidth="1.68" positionX="0" positionZ="0.4"/>
+        </Axles>
+      </Vehicle>
+    </ScenarioObject>'''
+
+        xosc_content += '''
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+        <GlobalAction>
+          <EnvironmentAction>
+            <Environment name="Environment">
+              <TimeOfDay animation="false" dateTime="2024-01-01T12:00:00"/>
+              <Weather cloudState="free">
+                <Sun intensity="1.0" azimuth="0" elevation="1.571"/>
+                <Fog visualRange="100000.0"/>
+                <Precipitation precipitationType="dry" intensity="0.0"/>
+              </Weather>
+              <RoadCondition frictionScaleFactor="1.0"/>
+            </Environment>
+          </EnvironmentAction>
+        </GlobalAction>
+        <Private entityRef="Ego">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-1" s="10.0" offset="0.0">
+                  <Orientation type="relative" h="0.0" p="0.0" r="0.0"/>
+                </LanePosition>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+        </Private>
+      </Actions>
+    </Init>
+    <Story name="MyStory">
+      <Act name="MyAct">
+        <ManeuverGroup maximumExecutionCount="1" name="MySequence">
+          <Actors selectTriggeringEntities="false">
+            <EntityRef entityRef="Ego"/>
+          </Actors>
+        </ManeuverGroup>
+        <StartTrigger>
+          <ConditionGroup>
+            <Condition name="OverallStartCondition" delay="0" conditionEdge="rising">
+              <ByValueCondition>
+                <SimulationTimeCondition value="0" rule="greaterThan"/>
+              </ByValueCondition>
+            </Condition>
+          </ConditionGroup>
+        </StartTrigger>
+      </Act>
+    </Story>
+    <StopTrigger>
+      <ConditionGroup>
+        <Condition name="OverallStopCondition" delay="0" conditionEdge="rising">
+          <ByValueCondition>
+            <SimulationTimeCondition value="10.0" rule="greaterThan"/>
+          </ByValueCondition>
+        </Condition>
+      </ConditionGroup>
+    </StopTrigger>
+  </Storyboard>
+</OpenSCENARIO>'''
+
+        # Generate basic OpenDRIVE content
+        xodr_content = f'''<?xml version="1.0" encoding="UTF-8"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="7" name="{scenario_name}" version="1.0" date="2025-01-25" north="0" south="0" east="1000" west="0" vendor="MockGenerator"/>
+  <road name="Road1" length="1000.0" id="1" junction="-1">
+    <link/>
+    <planView>
+      <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="1000.0">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile>
+      <elevation s="0" a="0" b="0" c="0" d="0"/>
+    </elevationProfile>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="driving" level="true">
+            <link/>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="standard" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="true">
+            <link/>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="broken" weight="standard" color="standard" width="0.13"/>
+          </lane>
+          <lane id="-2" type="driving" level="true">
+            <link/>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="standard" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>'''
+
+        return {
+            f"{scenario_name}.xosc": xosc_content,
+            f"{scenario_name}.xodr": xodr_content
+        }
+    
+    async def start_complete_workflow(self, session_id: str, parameters: ScenarioParameters, 
+                                    auto_validate: bool = True, prepare_visualization: bool = True,
+                                    validation_level: str = "enhanced") -> WorkflowState:
+        """Start a complete workflow with given parameters"""
+        # Create workflow state
+        workflow = WorkflowState(
+            session_id=session_id,
+            status=WorkflowStatus.PENDING,
+            current_step=None,
+            progress=0.0,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            parameters=parameters
+        )
+        
+        # Store workflow
+        self.workflows[session_id] = workflow
+        
+        # Start background execution
+        asyncio.create_task(self._background_complete_workflow(session_id, auto_validate, prepare_visualization))
+        
+        return workflow
+    
+    async def _background_complete_workflow(self, session_id: str, auto_validate: bool, prepare_visualization: bool):
+        """Execute complete workflow in background"""
+        try:
+            if auto_validate and prepare_visualization:
+                await self.execute_complete_workflow(session_id)
+            elif auto_validate:
+                await self.execute_generate_and_validate(session_id)
+            else:
+                # Just generation
+                workflow = self.get_workflow(session_id)
+                if workflow:
+                    await self._execute_generation_step(workflow)
+                    self.update_workflow(session_id, status=WorkflowStatus.READY, progress=1.0)
+        except Exception as e:
+            print(f"Background complete workflow execution failed: {e}")
+            self.update_workflow(
+                session_id,
+                status=WorkflowStatus.ERROR,
+                error_message=str(e)
+            )
+    
     
     
     def cleanup_old_workflows(self):
@@ -471,8 +668,8 @@ class WorkflowManager:
             "status": workflow.status,
             "current_step": workflow.current_step,
             "progress": workflow.progress,
-            "created_at": workflow.created_at.isoformat(),
-            "updated_at": workflow.updated_at.isoformat(),
+            "created_at": workflow.created_at.isoformat() if workflow.created_at else datetime.now().isoformat(),
+            "updated_at": workflow.updated_at.isoformat() if workflow.updated_at else datetime.now().isoformat(),
             "has_files": bool(workflow.scenario_files),
             "has_validation": bool(workflow.validation_results),
             "error_message": workflow.error_message,

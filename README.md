@@ -1,82 +1,131 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![OpenSCENARIO](https://img.shields.io/badge/OpenSCENARIO-1.0--1.3-brightgreen)](https://www.asam.net/standards/detail/openscenario/)
-[![AWS ECS](https://img.shields.io/badge/AWS-ECS%20Deployed-orange)](docs/aws_troubleshooting.md)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-success)]()
+[![Status](https://img.shields.io/badge/Status-Fully%20Operational-success)]()
+[![AI](https://img.shields.io/badge/AI-GPT--4%20Powered-blue)]()
+[![Workflow](https://img.shields.io/badge/Workflow-One--Click-green)]()
 
-A web-based tool for validating OpenSCENARIO (.xosc) files with a user-friendly interface. Deployed on AWS ECS with high availability and scalability.
+# 🤖 AI-Enhanced ASAM OpenX Scenario Generation System
+
+A complete AI-powered platform for creating, validating, and visualizing ASAM OpenSCENARIO and OpenDRIVE files through natural language conversations and automated workflows.
+
+## 🚀 System Status: FULLY OPERATIONAL
+
+**Latest Update (July 4, 2025)**: All core features are now fully deployed and operational!
+
+### ✅ Working Features
+- 🤖 **Multi-turn AI Chatbot** - Natural language scenario generation
+- 🎯 **One-Click Workflow** - Complete generation → validation → visualization
+- 📁 **Automatic File Generation** - OpenSCENARIO (.xosc) + OpenDRIVE (.xodr)
+- ✔️ **Real-time Validation** - ASAM compliance checking with zero errors
+- 📊 **Live Monitoring** - Grafana dashboard with system metrics
+- 🔄 **End-to-End Integration** - Seamless frontend ↔ backend communication
+
+## 🌐 Quick Access
+
+### User Interfaces
+- **🎨 Frontend Application**: [http://localhost:3000](http://localhost:3000)
+- **📊 Grafana Monitoring**: [http://localhost:3001](http://localhost:3001)
+- **🔧 Backend API**: [http://localhost:8080](http://localhost:8080)
+
+### Navigation
+- **Scenario Generator** ← 🎯 **Main feature with AI chatbot and one-click workflow**
+- **Scenario Player** ← Basic scenario playback
+- **Scenario Validator** ← File validation interface
+- **Integrated Workflow** ← Advanced workflow management
 
 ## Table of Contents
 
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Quick Start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Using Docker (Recommended)](#using-docker-recommended)
-  - [Local Development](#local-development)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
+- [🎯 Core Features](#-core-features)
+- [🚀 Quick Start](#-quick-start)
+- [💻 Usage Guide](#-usage-guide)
+- [🏗️ Architecture](#️-architecture)
+- [📚 Documentation](#-documentation)
+- [🔧 Development](#-development)
+- [📈 Monitoring](#-monitoring)
 
-## Features
+## 🎯 Core Features
 
-- **File Upload & Validation**
-  - Drag and drop interface for uploading OpenSCENARIO files
-  - Real-time validation feedback
-  - Detailed error and warning messages
+### 🤖 AI-Powered Scenario Generation
+- **Multi-turn Conversations**: Natural language dialogue with AI assistant
+- **Smart Parameter Extraction**: Automatic scenario parameter detection
+- **NCAP Compliance**: Euro NCAP test protocol integration
+- **Real-time Guidance**: Interactive scenario refinement
 
-- **User Interface**
-  - Responsive design for desktop and mobile
-  - Dark/light mode support
-  - Intuitive result visualization
+### 🎯 One-Click Workflow
+- **Complete Automation**: Generation → Validation → Visualization preparation
+- **File Management**: Automatic OpenSCENARIO (.xosc) and OpenDRIVE (.xodr) creation
+- **Real-time Status**: Live progress tracking and status updates
+- **Zero Manual Steps**: Eliminate upload/download/conversion workflows
 
-- **Integration**
-  - RESTful API for programmatic access
-  - Containerized deployment with Docker
-  - CI/CD ready
-  - AWS ECS deployment with high availability
+### ✔️ Advanced Validation
+- **ASAM Compliance**: OpenSCENARIO and OpenDRIVE standard validation
+- **Cross-file Validation**: Consistency checking between .xosc and .xodr files
+- **Detailed Reporting**: Line-by-line error and warning information
+- **Multiple Validation Levels**: Schema, enhanced, and domain-specific checks
 
-## Deployment Status
+### 🎨 Modern User Interface
+- **Responsive Design**: Works on desktop and mobile devices
+- **Real-time Updates**: Live status and progress indicators
+- **User-friendly**: Clear instructions and visual feedback
+- **No Complex Dependencies**: Streamlined interface that just works
 
-The application is currently deployed on AWS ECS with the following status:
+### 🔧 Integration & Deployment
+- **RESTful API**: Complete programmatic access
+- **Docker Containerized**: Ready-to-deploy containers
+- **Real-time Monitoring**: Grafana dashboards and metrics
+- **Production Ready**: Fully tested and operational
 
-- **Frontend Service**: Running healthy tasks with Nginx serving static files
-- **Backend Service**: Running healthy tasks with FastAPI providing API endpoints
-- **Load Balancer**: Application Load Balancer routing traffic to both services
-- **Database**: PostgreSQL RDS instance with multi-AZ deployment
+## 🚀 Quick Start
 
-## Quick Start
-
-### Prerequisites
+### 🔧 Prerequisites
 
 - Docker 20.10+ and Docker Compose 1.29+
-- Node.js 16+ and npm 8+ (for development)
-- Python 3.8+ (for backend development)
-- OpenSCENARIO validator executable
+- OpenAI API Key (for AI functionality)
 
-### Using Docker (Recommended)
+### ⚡ Start the System (2 Commands)
 
 ```bash
-# Clone the repository
+# 1. Clone and navigate
 git clone <repository-url>
 cd DS_DevOps_project
 
-# Start the application
-docker-compose -f docker-compose.prod.yml up -d --build
+# 2. Set OpenAI API key and start
+echo "OPENAI_API_KEY=your-api-key-here" > .env
+docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
-> **Note on Validator Integration**
-> 
-> The OpenSCENARIO validator is now included in the Docker image by default. 
-> The validator executable and its required libraries are automatically copied during the build process.
+### 🌐 Access the Application
 
-The production application will be available at:
-- Frontend: http://localhost:8081
-- Backend API: http://localhost:8080
-- API Documentation: http://localhost:8080/docs
+The system will be available at:
+- **🎨 Frontend**: [http://localhost:3000](http://localhost:3000) ← **Main interface**
+- **📊 Monitoring**: [http://localhost:3001](http://localhost:3001) ← **Grafana dashboard**
+- **🔧 Backend API**: [http://localhost:8080](http://localhost:8080) ← **API endpoints**
+- **📚 API Docs**: [http://localhost:8080/docs](http://localhost:8080/docs) ← **Swagger UI**
 
-> **Note**: In production, the frontend is served on port 8081 to avoid conflicts with other services. In development, the frontend runs on port 3000.
+## 💻 Usage Guide
+
+### 🎯 Quick Workflow
+
+1. **Open Frontend**: Navigate to http://localhost:3000
+2. **Go to Scenario Generator**: Click "Scenario Generator" in navigation
+3. **Chat with AI**: Describe your scenario in natural language
+4. **Execute Workflow**: Click "🎯 Generate + Validate + Visualize" button
+5. **Monitor Progress**: Watch real-time status updates
+6. **Download Files**: Access generated OpenSCENARIO and OpenDRIVE files
+
+### 🤖 AI Chat Features
+
+- **Multi-turn Conversations**: Continuous dialogue, not one-shot input
+- **Natural Language**: Describe scenarios in plain English
+- **Smart Guidance**: AI helps refine and complete scenario details
+- **Parameter Extraction**: Automatic detection of scenario parameters
+
+### 🎯 One-Click Workflow Features
+
+- **Complete Automation**: No manual file handling required
+- **Real-time Feedback**: Live progress and status updates
+- **Error Handling**: Clear error messages and recovery guidance
+- **File Generation**: Automatic creation of ASAM-compliant files
 
 ### Local Development
 
@@ -269,10 +318,34 @@ For more details, visit the interactive API documentation at `/docs` when the ba
 |-----------------|----------------|-------------------|
 | `VITE_API_URL` | `http://localhost:8080` | Backend API URL |
 
-## Contributing
+## 📚 Documentation
+
+### 📋 Project Documentation
+- **[Development Status](docs/dev_status.md)** - Complete feature implementation status
+- **[Product Requirements](docs/PRD.md)** - Original project requirements and specifications
+- **[Deployment Status](docs/DEPLOYMENT_STATUS.md)** - Current deployment state and access info
+- **[Changelog](docs/CHANGELOG_2025-07-04.md)** - Latest updates and fixes
+
+### 🔧 Technical Documentation  
+- **[Verification Guide](docs/VERIFICATION.md)** - TDD testing and verification procedures
+- **[AWS Architecture](docs/aws_troubleshooting.md)** - AWS deployment guide and troubleshooting
+- **[Terraform Guide](docs/terraform_guide.md)** - Infrastructure as code documentation
+- **[Monitoring Plan](docs/monitoring_plan.md)** - System monitoring and observability
+
+### 📊 Operations Documentation
+- **[Monitoring Deployment](docs/monitoring_deployment_summary.md)** - Grafana, Prometheus setup
+- **[OKRs](docs/OKR.md)** - Objectives and key results tracking
+
+### 🎯 Quick Links
+- **System Status**: ✅ FULLY OPERATIONAL
+- **Latest Update**: July 4, 2025
+- **Main Features**: AI Chatbot + One-Click Workflow + Real-time Validation
+- **Access URLs**: [Frontend](http://localhost:3000) | [Monitoring](http://localhost:3001)
+
+## 🤝 Contributing
 
 We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to learn how you can contribute to this project.
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

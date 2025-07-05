@@ -67,13 +67,13 @@ interface ScenarioParameters {
   parameter_variations: Record<string, any>;
 }
 
-interface WorkflowRequest {
+export interface WorkflowRequest {
   parameters: ScenarioParameters;
   auto_validate?: boolean;
   prepare_visualization?: boolean;
 }
 
-interface WorkflowResponse {
+export interface WorkflowResponse {
   session_id: string;
   status: WorkflowStatus;
   current_step: WorkflowStep | null;
@@ -96,7 +96,7 @@ type WorkflowAction =
   | { type: 'RESET_WORKFLOW' };
 
 // Initial state
-const initialState: WorkflowState = {
+export const initialState: WorkflowState = {
   sessionId: null,
   status: 'pending',
   currentStep: null,
@@ -112,7 +112,7 @@ const initialState: WorkflowState = {
 };
 
 // Workflow reducer
-function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
+export function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };

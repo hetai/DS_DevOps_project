@@ -316,7 +316,7 @@ const SimpleChatBot: React.FC<SimpleChatBotProps> = ({ onScenarioGenerated: _onS
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap text-sm">
+                    <div className="whitespace-pre-wrap text-sm break-words overflow-wrap-anywhere">
                       {message.content}
                     </div>
                   </div>

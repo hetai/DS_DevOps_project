@@ -162,9 +162,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ onScenarioGenerated }) => {
   };
 
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto">
+    <div className="flex flex-col h-[600px] max-w-4xl mx-auto">
       {/* Chat Header */}
-      <Card className="mb-4">
+      <Card className="mb-4 flex-shrink-0">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5 text-blue-500" />
@@ -180,9 +180,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ onScenarioGenerated }) => {
       </Card>
 
       {/* Chat Messages */}
-      <Card className="flex-1 flex flex-col">
-        <CardContent className="p-0 flex-1 flex flex-col">
-          <ScrollArea className="flex-1 p-4">
+      <Card className="flex-1 flex flex-col min-h-0">
+        <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+          <ScrollArea className="flex-1 p-4 min-h-0">
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div
@@ -198,13 +198,13 @@ const ChatBot: React.FC<ChatBotProps> = ({ onScenarioGenerated }) => {
                   )}
                   
                   <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    className={`max-w-[70%] rounded-lg px-4 py-2 ${
                       message.role === 'user'
                         ? 'bg-blue-500 text-white'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap text-sm">
+                    <div className="whitespace-pre-wrap text-sm break-words overflow-wrap-anywhere">
                       {message.content}
                     </div>
                   </div>

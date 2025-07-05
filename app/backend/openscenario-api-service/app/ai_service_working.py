@@ -4,6 +4,7 @@ from typing import List, Optional
 from openai import OpenAI
 from .schemas import ScenarioParameters, ChatMessage, ChatResponse
 from .asam_ontology_service import ASAMOntologyService
+from .monitoring import track_openai_api_call, metrics_collector
 
 class WorkingAIService:
     """Working AI service with real OpenAI integration but without Instructor"""
@@ -51,6 +52,7 @@ Conversation Flow:
 
 Important: Do NOT immediately suggest generation after the first message. Always ask follow-up questions to gather more details first."""
 
+    @track_openai_api_call(model="gpt-4", endpoint="chat")
     async def process_conversation(
         self, 
         user_message: str, 
@@ -60,6 +62,10 @@ Important: Do NOT immediately suggest generation after the first message. Always
         """Process user message and return AI response with potential parameter extraction"""
         
         try:
+            # Track chat session
+            if session_id:
+                metrics_collector.track_chat_session(session_id, "start")
+            
             # Build conversation context
             messages = [{"role": "system", "content": self.system_prompt}]
             

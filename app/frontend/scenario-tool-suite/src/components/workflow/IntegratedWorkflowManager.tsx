@@ -19,7 +19,7 @@ export type {
   ScenarioParameters,
   WorkflowRequest,
   WorkflowResponse,
-} from './WorkflowManager';
+} from '../WorkflowManager';
 
 // Import existing workflow types and utilities
 import {
@@ -31,7 +31,7 @@ import {
   WorkflowResponse,
   workflowReducer,
   initialState,
-} from './WorkflowManager';
+} from '../WorkflowManager';
 
 // Extended interfaces for integrated workflow
 export interface IntegratedWorkflowRequest extends WorkflowRequest {

@@ -15,6 +15,7 @@ from typing import List
 from .ai_service_working import ai_service
 from .workflow_service import workflow_manager
 from .api_documentation import setup_api_documentation
+from .monitoring import setup_monitoring, metrics_collector, track_workflow_step
 
 # Try to import scenario generator, fall back to mock if not available
 try:
@@ -33,6 +34,9 @@ app = FastAPI(
 
 # Setup comprehensive API documentation
 setup_api_documentation(app)
+
+# Setup monitoring first
+setup_monitoring(app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -446,16 +450,27 @@ async def workflow_generate_and_validate(request: WorkflowRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 class CompleteWorkflowRequest(BaseModel):
-    session_id: str = Field(..., min_length=1)
+    parameters: ScenarioParameters = Field(..., description="Scenario parameters for generation")
+    auto_validate: bool = Field(default=True, description="Auto-validate generated scenarios")
+    prepare_visualization: bool = Field(default=True, description="Prepare visualization metadata")
+    validation_level: str = Field(default="enhanced", description="Validation level (basic/enhanced/qcf)")
 
 @app.post('/api/workflow/complete', response_model=WorkflowResponse)
 async def workflow_complete(request: CompleteWorkflowRequest):
-    """Complete an existing workflow session"""
+    """Start a complete workflow from scenario parameters"""
     try:
-        session_id = request.session_id
+        # Generate a new session ID
+        import uuid
+        session_id = str(uuid.uuid4())
         
-        # Complete existing workflow
-        workflow = await workflow_manager.complete_workflow(session_id)
+        # Start a new complete workflow
+        workflow = await workflow_manager.start_complete_workflow(
+            session_id=session_id,
+            parameters=request.parameters,
+            auto_validate=request.auto_validate,
+            prepare_visualization=request.prepare_visualization,
+            validation_level=request.validation_level
+        )
         
         if not workflow:
             raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
@@ -491,13 +506,10 @@ async def get_workflow_status(session_id: str):
         if not workflow:
             raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
         
-        # Convert to summary format
-        summary = {
-            "session_id": workflow.session_id,
-            "status": workflow.status.value,
-            "current_step": workflow.current_step.value if workflow.current_step else None,
-            "progress": workflow.progress
-        }
+        # Use the proper workflow summary method
+        summary = workflow_manager.get_workflow_summary(session_id)
+        if not summary:
+            raise HTTPException(status_code=404, detail=f"Workflow {session_id} not found")
         
         return WorkflowSummary(**summary)
         
