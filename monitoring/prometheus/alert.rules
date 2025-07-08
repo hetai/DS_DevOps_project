@@ -1,0 +1,72 @@
+groups:
+  - name: openscenario-alerts
+    rules:
+      # High API response time alert
+      - alert: HighAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API response time detected"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.job }}"
+
+      # High error rate alert  
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} for {{ $labels.job }}"
+
+      # OpenAI API failures
+      - alert: OpenAIAPIFailures
+        expr: increase(openai_api_calls_error[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenAI API failures detected"
+          description: "{{ $value }} OpenAI API failures in the last 5 minutes"
+
+      # Workflow failures
+      - alert: WorkflowFailures
+        expr: increase(workflow_step_error_total[5m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Workflow failures detected"
+          description: "{{ $value }} workflow failures in the last 5 minutes"
+
+      # Container down
+      - alert: ContainerDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% for {{ $labels.container_label_com_docker_compose_service }}"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for {{ $labels.container_label_com_docker_compose_service }}"
