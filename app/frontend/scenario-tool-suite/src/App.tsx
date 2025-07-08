@@ -23,6 +23,7 @@ import ErrorBoundary from "@/components/ui/error-boundary";
 import Visualization3DTest from "@/pages/Visualization3DTest";
 import Simple3DTest from "@/components/visualization/Simple3DTest";
 import Simple3DTestPage from "@/app/simple-3d-test/page";
+import RefactorTest from "@/pages/RefactorTest";
 import { 
   Bot, 
   Cpu, 
@@ -239,6 +240,7 @@ function ModernNavigation() {
     { path: "/", label: "Scenario Player", icon: Play },
     { path: "/generator", label: "AI Generator", icon: Bot },
     { path: "/validator", label: "Validator", icon: Shield },
+    { path: "/refactor-test", label: "Refactor Test", icon: Zap },
   ];
   
   return (
@@ -1650,6 +1652,7 @@ function App() {
         <Route path="/test-3d" element={<Visualization3DTest />} />
         <Route path="/simple-3d" element={<Simple3DTest />} />
         <Route path="/simple-3d-test" element={<Simple3DTestPage />} />
+        <Route path="/refactor-test" element={<RefactorTest />} />
       </Routes>
     </div>
   );

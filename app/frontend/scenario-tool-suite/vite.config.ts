@@ -20,6 +20,9 @@ export default defineConfig({
   build: {
     outDir: 'build'
   },
+  worker: {
+    format: 'es'
+  },
   plugins: [react()],
   resolve: {
     alias: {
