@@ -237,10 +237,8 @@ function ModernNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const navItems = [
-    { path: "/", label: "Scenario Player", icon: Play },
-    { path: "/generator", label: "AI Generator", icon: Bot },
-    { path: "/validator", label: "Validator", icon: Shield },
-    { path: "/refactor-test", label: "Refactor Test", icon: Zap },
+    { path: "/", label: "AI Generator", icon: Bot },
+    { path: "/player", label: "Scenario Player", icon: Play },
   ];
   
   return (
@@ -288,11 +286,7 @@ function ModernNavigation() {
             />
           </div>
           
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>
-              <User className="h-4 w-4" />
-            </AvatarFallback>
-          </Avatar>
+
           
           {/* Mobile Menu */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -570,7 +564,7 @@ function AIScenarioGenerator() {
       if (response.ok) {
         const data = await response.json();
         sessionStorage.setItem('loadedScenarioFiles', JSON.stringify(data.files));
-        navigate('/', { state: { sessionId, autoLoad: true } });
+        navigate('/player', { state: { sessionId, autoLoad: true } });
       } else {
         console.error('Failed to load files for session:', sessionId);
       }
@@ -1288,52 +1282,7 @@ function ScenarioPlayer() {
           )}
         </div>
 
-        {/* Bottom Control Panel */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="flex items-center space-x-4 bg-black/80 backdrop-blur-sm border border-gray-700 rounded-lg px-6 py-3">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-gray-700"
-            >
-              <AlertTriangle className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-gray-700"
-            >
-              <Play className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-gray-700"
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-            <div className="text-xs text-gray-400 px-4">
-              Edit Scenario | Load Scenario
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-gray-700"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <div className="text-xs text-gray-400">
-              Chase | Top Down | Free | 3D | 2D
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-white hover:bg-gray-700"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        {/* Old bottom control panel removed - now using BottomControlBar in Visualization3D */}
       </div>
     </div>
   );
@@ -1646,13 +1595,11 @@ function App() {
     <div className="min-h-screen bg-background font-sans">
       <ModernNavigation />
       <Routes>
-        <Route path="/" element={<ScenarioPlayer />} />
-        <Route path="/generator" element={<AIScenarioGenerator />} />
-        <Route path="/validator" element={<ScenarioValidator />} />
+        <Route path="/" element={<AIScenarioGenerator />} />
+        <Route path="/player" element={<ScenarioPlayer />} />
         <Route path="/test-3d" element={<Visualization3DTest />} />
         <Route path="/simple-3d" element={<Simple3DTest />} />
         <Route path="/simple-3d-test" element={<Simple3DTestPage />} />
-        <Route path="/refactor-test" element={<RefactorTest />} />
       </Routes>
     </div>
   );

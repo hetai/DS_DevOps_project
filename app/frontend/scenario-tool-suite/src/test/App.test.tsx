@@ -16,19 +16,18 @@ describe('App Component', () => {
   })
 
   describe('Navigation', () => {
-    it('should render navigation with all three main links', () => {
+    it('should render navigation with main links', () => {
       render(<AppWithRouter />)
       
-      expect(screen.getByText('OpenSCENARIO Tool Suite')).toBeInTheDocument()
+      expect(screen.getByText('OpenSCENARIO Suite')).toBeInTheDocument()
+      expect(screen.getByText('AI Generator')).toBeInTheDocument()
       expect(screen.getByText('Scenario Player')).toBeInTheDocument()
-      expect(screen.getByText('Scenario Generator')).toBeInTheDocument()
-      expect(screen.getByText('Scenario Validator')).toBeInTheDocument()
     })
 
     it('should highlight active navigation link', () => {
-      render(<AppWithRouter initialEntries={['/generator']} />)
+      render(<AppWithRouter initialEntries={['/']} />)
       
-      const generatorLink = screen.getByText('Scenario Generator')
+      const generatorLink = screen.getByText('AI Generator')
       const playerLink = screen.getByText('Scenario Player')
       
       // Active link should have different styling
@@ -40,23 +39,22 @@ describe('App Component', () => {
       const user = userEvent.setup()
       render(<AppWithRouter />)
       
-      // Start on Scenario Player page
+      // Start on AI Generator page
+      expect(screen.getByText('AI Scenario Generator')).toBeInTheDocument()
+      
+      // Navigate to Player
+      await user.click(screen.getByText('Scenario Player'))
       expect(screen.getByText('Load OpenSCENARIO File')).toBeInTheDocument()
       
-      // Navigate to Generator
-      await user.click(screen.getByText('Scenario Generator'))
+      // Navigate back to Generator
+      await user.click(screen.getByText('AI Generator'))
       expect(screen.getByText('AI Scenario Generator')).toBeInTheDocument()
-      expect(screen.getByText('Scenario Description')).toBeInTheDocument()
-      
-      // Navigate to Validator
-      await user.click(screen.getByText('Scenario Validator'))
-      expect(screen.getByText('Upload Files for Validation')).toBeInTheDocument()
     })
   })
 
   describe('Scenario Player Page', () => {
     it('should render file upload and simulation controls', () => {
-      render(<AppWithRouter />)
+      render(<AppWithRouter initialEntries={['/player']} />)
       
       expect(screen.getByText('Load OpenSCENARIO File')).toBeInTheDocument()
       expect(screen.getByText('Run Simulation')).toBeInTheDocument()
@@ -66,7 +64,7 @@ describe('App Component', () => {
 
     it('should enable simulation button when file is selected', async () => {
       const user = userEvent.setup()
-      render(<AppWithRouter />)
+      render(<AppWithRouter initialEntries={['/player']} />)
       
       const fileInput = screen.getByLabelText(/choose openscenario file/i) as HTMLInputElement
       const runButton = screen.getByText('Run Simulation')
@@ -86,7 +84,7 @@ describe('App Component', () => {
 
   describe('Scenario Generator Page', () => {
     beforeEach(() => {
-      render(<AppWithRouter initialEntries={['/generator']} />)
+      render(<AppWithRouter initialEntries={['/']} />)
     })
 
     it('should render scenario description form', () => {
@@ -133,50 +131,7 @@ describe('App Component', () => {
     })
   })
 
-  describe('Scenario Validator Page', () => {
-    beforeEach(() => {
-      render(<AppWithRouter initialEntries={['/validator']} />)
-    })
 
-    it('should render file upload and validation controls', () => {
-      expect(screen.getByText('Upload Files for Validation')).toBeInTheDocument()
-      expect(screen.getByText('Validate Files')).toBeInTheDocument()
-      expect(screen.getByText('Validation Results')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('No validation performed yet')).toBeInTheDocument()
-    })
-
-    it('should enable validate button when files are selected', async () => {
-      const user = userEvent.setup()
-      
-      const fileInput = screen.getByLabelText(/choose files to validate/i) as HTMLInputElement
-      const validateButton = screen.getByText('Validate Files')
-      
-      // Initially disabled
-      expect(validateButton).toBeDisabled()
-      
-      const file1 = new File(['content1'], 'test1.xosc', { type: 'application/xml' })
-      const file2 = new File(['content2'], 'test2.xodr', { type: 'application/xml' })
-      
-      await user.upload(fileInput, [file1, file2])
-      
-      expect(validateButton).toBeEnabled()
-    })
-
-    it('should show validation results when validating', async () => {
-      const user = userEvent.setup()
-      
-      const fileInput = screen.getByLabelText(/choose files to validate/i) as HTMLInputElement
-      const validateButton = screen.getByText('Validate Files')
-      
-      const file = new File(['content'], 'test.xosc', { type: 'application/xml' })
-      await user.upload(fileInput, file)
-      await user.click(validateButton)
-      
-      expect(screen.getByDisplayValue(/Validating 1 file\(s\)/)).toBeInTheDocument()
-      expect(screen.getByDisplayValue(/Schema validation passed/)).toBeInTheDocument()
-      expect(screen.getByDisplayValue(/ASAM compliance check passed/)).toBeInTheDocument()
-    })
-  })
 
   describe('Accessibility', () => {
     it('should have proper heading hierarchy', () => {
@@ -196,13 +151,11 @@ describe('App Component', () => {
       
       // Verify that navigation links are focusable
       const playerLink = screen.getByText('Scenario Player')
-      const generatorLink = screen.getByText('Scenario Generator')
-      const validatorLink = screen.getByText('Scenario Validator')
+      const generatorLink = screen.getByText('AI Generator')
       
       // Links should be focusable elements
       expect(playerLink.tagName).toBe('A')
       expect(generatorLink.tagName).toBe('A')
-      expect(validatorLink.tagName).toBe('A')
       
       // Focus functionality
       playerLink.focus()

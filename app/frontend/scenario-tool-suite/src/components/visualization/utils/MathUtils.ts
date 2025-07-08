@@ -51,7 +51,21 @@ export class MathUtils {
    * Calculate distance between two 3D points
    */
   static distance3D(a: THREE.Vector3, b: THREE.Vector3): number {
-    return a.distanceTo(b);
+    try {
+      // Ensure both points are valid Vector3 objects
+      if (a && b && typeof a.distanceTo === 'function') {
+        return a.distanceTo(b);
+      } else {
+        // Fallback to manual distance calculation
+        const dx = (b?.x || 0) - (a?.x || 0);
+        const dy = (b?.y || 0) - (a?.y || 0);
+        const dz = (b?.z || 0) - (a?.z || 0);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+      }
+    } catch (error) {
+      console.warn('Error calculating 3D distance:', error);
+      return 0;
+    }
   }
   
   /**

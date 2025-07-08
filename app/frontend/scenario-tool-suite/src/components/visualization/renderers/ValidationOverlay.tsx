@@ -14,6 +14,7 @@ interface ValidationOverlayProps {
   highlightIntensity?: number;
   blinkingEnabled?: boolean;
   onIssueClick?: (issue: ValidationIssue) => void;
+  performanceMode?: boolean;
 }
 
 interface ValidationMarkerProps {
@@ -21,6 +22,7 @@ interface ValidationMarkerProps {
   intensity: number;
   blinking: boolean;
   onClick?: () => void;
+  performanceMode?: boolean;
 }
 
 interface ValidationHeatmapProps {
@@ -37,7 +39,7 @@ interface ValidationSummaryProps {
 /**
  * Individual validation marker component
  */
-function ValidationMarker({ issue, intensity, blinking, onClick }: ValidationMarkerProps) {
+function ValidationMarker({ issue, intensity, blinking, onClick, performanceMode = false }: ValidationMarkerProps) {
   const markerRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const time = useRef(0);
@@ -84,22 +86,33 @@ function ValidationMarker({ issue, intensity, blinking, onClick }: ValidationMar
     return geometry;
   }, [markerGeometry]);
   
-  // Animation and blinking effect
+  // Animation and blinking effect with performance optimization
   useFrame((state, delta) => {
+    if (performanceMode) return; // Skip animations in performance mode
+    
     time.current += delta;
     
     if (meshRef.current && markerRef.current) {
-      // Rotation animation
-      markerRef.current.rotation.y = time.current * 0.5;
+      // Slower rotation animation to reduce CPU usage
+      markerRef.current.rotation.y = time.current * 0.2;
       
-      // Blinking effect
+      // Reduced blinking frequency and intensity
       if (blinking) {
-        const blinkIntensity = Math.sin(time.current * 4) * 0.5 + 0.5;
-        meshRef.current.material.opacity = intensity * (0.4 + blinkIntensity * 0.6);
+        const blinkIntensity = Math.sin(time.current * 2) * 0.3 + 0.7; // Slower, less intense blinking
+        const material = meshRef.current.material;
+        if (Array.isArray(material)) {
+          material.forEach(mat => {
+            if (mat instanceof THREE.MeshLambertMaterial) {
+              mat.opacity = intensity * blinkIntensity;
+            }
+          });
+        } else if (material instanceof THREE.MeshLambertMaterial) {
+          material.opacity = intensity * blinkIntensity;
+        }
       }
       
-      // Floating animation
-      markerRef.current.position.y = (issue.position?.y || 0) + Math.sin(time.current * 2) * 0.1;
+      // Reduced floating animation
+      markerRef.current.position.y = (issue.position?.y || 0) + Math.sin(time.current * 1) * 0.05;
     }
   });
   
@@ -107,6 +120,8 @@ function ValidationMarker({ issue, intensity, blinking, onClick }: ValidationMar
   const [hovered, setHovered] = React.useState(false);
   
   useFrame(() => {
+    if (performanceMode) return; // Skip hover animations in performance mode
+    
     if (meshRef.current && hovered) {
       const scale = 1 + Math.sin(time.current * 6) * 0.1;
       meshRef.current.scale.setScalar(scale);
@@ -457,9 +472,10 @@ function generatePositionFromIndex(index: number, total: number): THREE.Vector3 
  */
 export default function ValidationOverlay({
   validationResults,
-  visible = true,
   highlightIntensity = 1.0,
   blinkingEnabled = true,
+  visible = true,
+  performanceMode = false,
   onIssueClick
 }: ValidationOverlayProps) {
   const overlayGroupRef = useRef<THREE.Group>(null);
@@ -503,7 +519,7 @@ export default function ValidationOverlay({
           key={`${issue.elementId}-${index}`}
           issue={issue}
           intensity={highlightIntensity}
-          blinking={blinkingEnabled && issue.severity === 'error'}
+          blinking={blinkingEnabled && issue.severity === 'error' && !performanceMode}
           onClick={() => onIssueClick?.(issue)}
         />
       ))}

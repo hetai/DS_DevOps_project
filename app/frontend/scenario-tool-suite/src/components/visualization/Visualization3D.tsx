@@ -18,9 +18,12 @@ import {
   Eye, 
   EyeOff,
   Settings,
-  Info
+  Info,
+  Monitor,
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
-
+import BottomControlBar from './BottomControlBar';
 // Import our custom visualization components
 import { SceneManager } from './core/SceneManager';
 import { OpenDriveParser } from './parsers/OpenDriveParser';
@@ -29,7 +32,8 @@ import RoadNetworkRenderer from './renderers/RoadNetworkRenderer';
 import VehicleRenderer from './renderers/VehicleRenderer';
 import ValidationOverlay from './renderers/ValidationOverlay';
 import CameraController from './controls/CameraController';
-import TimelineController from './controls/TimelineController';
+// TimelineController functionality is now integrated into BottomControlBar
+// import TimelineController from './controls/TimelineController';
 import { DataAdapter } from './utils/DataAdapter';
 
 // Import types
@@ -158,89 +162,8 @@ function VisualizationErrorFallback({ error, onRetry }: { error?: string; onRetr
   );
 }
 
-/**
- * Controls panel component
- */
-function ControlsPanel({
-  state,
-  onStateChange
-}: {
-  state: Visualization3DState;
-  onStateChange: (updates: Partial<Visualization3DState>) => void;
-}) {
-  return (
-    <div className="absolute top-4 right-4 z-20 flex flex-col space-y-2">
-      {/* Playback controls */}
-      <div className="bg-white rounded-lg shadow-lg p-3 border">
-        <div className="flex items-center space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onStateChange({ isPlaying: !state.isPlaying })}
-          >
-            {state.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </Button>
-          
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onStateChange({ currentTime: 0, isPlaying: false })}
-          >
-            <RotateCcw className="w-4 h-4" />
-          </Button>
-          
-          <div className="text-xs text-gray-600">
-            {state.currentTime.toFixed(1)}s / {state.timelineDuration.toFixed(1)}s
-          </div>
-        </div>
-      </div>
-      
-      {/* View controls */}
-      <div className="bg-white rounded-lg shadow-lg p-3 border">
-        <div className="flex flex-col space-y-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onStateChange({ showValidationHighlights: !state.showValidationHighlights })}
-            className="justify-start"
-          >
-            {state.showValidationHighlights ? (
-              <><EyeOff className="w-4 h-4 mr-1" /> Hide Validation</>
-            ) : (
-              <><Eye className="w-4 h-4 mr-1" /> Show Validation</>
-            )}
-          </Button>
-          
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onStateChange({ showVehicleLabels: !state.showVehicleLabels })}
-            className="justify-start"
-          >
-            {state.showVehicleLabels ? 'Hide Labels' : 'Show Labels'}
-          </Button>
-          
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onStateChange({ autoRotate: !state.autoRotate })}
-            className="justify-start"
-          >
-            {state.autoRotate ? 'Stop Rotation' : 'Auto Rotate'}
-          </Button>
-        </div>
-      </div>
-      
-      {/* Performance info */}
-      <div className="bg-white rounded-lg shadow-lg p-2 border text-xs">
-        <div className="space-y-1">
-          <div><strong>FPS:</strong> {state.frameRate}</div>
-          <div><strong>Render:</strong> {state.renderTime.toFixed(1)}ms</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ControlsPanel has been replaced by BottomControlBar
+// The old right-side controls panel is removed to provide more 3D view space
 
 /**
  * Info panel component
@@ -301,7 +224,8 @@ function SceneContent({
   openScenarioData,
   validationResults,
   onStateChange,
-  scenarioFiles
+  scenarioFiles,
+  performanceMode
 }: {
   state: Visualization3DState;
   openDriveData: ParsedOpenDrive | null;
@@ -309,23 +233,28 @@ function SceneContent({
   validationResults?: Record<string, any>;
   onStateChange: (updates: Partial<Visualization3DState>) => void;
   scenarioFiles: Record<string, string>;
+  performanceMode?: boolean;
 }) {
   const frameCount = useRef(0);
   const lastTime = useRef(performance.now());
   
-  // Performance monitoring
+  // Performance monitoring with reduced frequency
   useFrame(() => {
     frameCount.current++;
     
-    if (frameCount.current % 60 === 0) {
+    // Update performance stats less frequently to reduce overhead
+    if (frameCount.current % 120 === 0) { // Every 2 seconds instead of 1
       const currentTime = performance.now();
       const deltaTime = currentTime - lastTime.current;
-      const fps = Math.round(60000 / deltaTime);
+      const fps = Math.round(120000 / deltaTime); // Adjust calculation for 120 frames
       
-      onStateChange({ 
-        frameRate: fps,
-        renderTime: deltaTime / 60
-      });
+      // Only update if there's a significant change
+      if (Math.abs(fps - (state.frameRate || 60)) > 5) {
+        onStateChange({ 
+          frameRate: fps,
+          renderTime: deltaTime / 120
+        });
+      }
       
       lastTime.current = currentTime;
     }
@@ -398,6 +327,7 @@ function SceneContent({
           showVehicleLabels={state.showVehicleLabels}
           playbackSpeed={state.playbackSpeed}
           visible={true}
+          performanceMode={performanceMode}
         />
       )}
       
@@ -408,6 +338,7 @@ function SceneContent({
           visible={true}
           highlightIntensity={1.0}
           blinkingEnabled={true}
+          performanceMode={performanceMode}
         />
       )}
       
@@ -465,6 +396,12 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
     frameRate: 60,
     renderTime: 16
   });
+  
+  // Additional state for info panel
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+  
+  // Performance mode state
+  const [performanceMode, setPerformanceMode] = useState(true); // Default to performance mode
   
   // Update state helper
   const updateState = (updates: Partial<Visualization3DState>) => {
@@ -530,7 +467,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
           isInitialized: true,
           openDriveData,
           openScenarioData,
-          timelineDuration: openScenarioData?.duration || 30,
+          timelineDuration: openScenarioData?.duration || Math.max(30, (openScenarioData?.timeline?.length || 0) * 2),
           error: null // Always allow initialization, even with no data
         });
         
@@ -570,6 +507,40 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
       }
     }, 0);
   }, [scenarioFiles, validationResults, onError]);
+  
+  // Auto-play logic
+  useEffect(() => {
+    let animationFrameId: number;
+    let lastTime = performance.now();
+    
+    const animate = (currentTimeMs: number) => {
+      if (state.isPlaying && state.currentTime < state.timelineDuration) {
+        const deltaTime = (currentTimeMs - lastTime) / 1000; // Convert to seconds
+        const timeIncrement = deltaTime * state.playbackSpeed;
+        
+        updateState({ 
+          currentTime: Math.min(state.currentTime + timeIncrement, state.timelineDuration)
+        });
+        
+        lastTime = currentTimeMs;
+        animationFrameId = requestAnimationFrame(animate);
+      } else if (state.isPlaying && state.currentTime >= state.timelineDuration) {
+        // Auto-stop when reaching the end
+        updateState({ isPlaying: false });
+      }
+    };
+    
+    if (state.isPlaying) {
+      lastTime = performance.now();
+      animationFrameId = requestAnimationFrame(animate);
+    }
+    
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [state.isPlaying, state.currentTime, state.timelineDuration, state.playbackSpeed]);
   
   // Handle timeline updates
   const handleTimeChange = (time: number) => {
@@ -627,7 +598,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
         >
           <Suspense fallback={<LoadingOverlay message="Loading 3D scene..." />}>
             <Canvas
-              shadows
+              shadows={!performanceMode}
               camera={{ 
                 position: [20, 20, 20], 
                 fov: 75,
@@ -635,9 +606,10 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
                 far: 1000
               }}
               gl={{ 
-                antialias: true,
+                antialias: !performanceMode,
                 alpha: true,
-                powerPreference: 'high-performance'
+                powerPreference: 'high-performance',
+                pixelRatio: performanceMode ? 1 : Math.min(window.devicePixelRatio, 1.5)
               }}
               style={{ 
                 background: 'linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%)' 
@@ -650,42 +622,55 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
                 validationResults={validationResults}
                 onStateChange={updateState}
                 scenarioFiles={scenarioFiles}
+                performanceMode={performanceMode}
               />
             </Canvas>
           </Suspense>
         </ErrorBoundary>
       </ThreeJSErrorBoundary>
       
-      {/* Controls overlay */}
-      {state.isInitialized && (
-        <ControlsPanel
-          state={state}
-          onStateChange={updateState}
-        />
-      )}
+      {/* Bottom Control Bar */}
+       {state.isInitialized && (
+         <BottomControlBar
+           // Playback controls
+           isPlaying={state.isPlaying}
+           currentTime={state.currentTime}
+           duration={state.timelineDuration}
+           playbackSpeed={state.playbackSpeed}
+           onPlayPause={handlePlayPause}
+           onReset={() => updateState({ currentTime: 0, isPlaying: false })}
+           onTimeChange={handleTimeChange}
+           onSpeedChange={handleSpeedChange}
+           
+           // View controls
+           showValidationHighlights={state.showValidationHighlights}
+           showVehicleLabels={state.showVehicleLabels}
+           autoRotate={state.autoRotate}
+           onToggleValidation={() => updateState({ showValidationHighlights: !state.showValidationHighlights })}
+           onToggleLabels={() => updateState({ showVehicleLabels: !state.showVehicleLabels })}
+           onToggleRotation={() => updateState({ autoRotate: !state.autoRotate })}
+           
+           // Performance monitoring
+           frameRate={state.frameRate}
+           renderTime={state.renderTime}
+           performanceMode={performanceMode}
+           onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
+           
+           // Timeline data
+           timeline={state.openScenarioData?.timeline as any}
+           
+           // Other controls
+           showInfoPanel={showInfoPanel}
+           onToggleInfoPanel={() => setShowInfoPanel(!showInfoPanel)}
+         />
+       )}
       
       {/* Info panel */}
       <InfoPanel
         openDriveData={state.openDriveData}
         openScenarioData={state.openScenarioData}
-        visible={state.isInitialized}
+        visible={showInfoPanel}
       />
-      
-      {/* Timeline controller */}
-      {state.isInitialized && state.openScenarioData && state.openScenarioData.timeline.length > 0 && (
-        <div className="absolute bottom-4 right-4 w-96 z-20">
-          <TimelineController
-            timeline={state.openScenarioData.timeline as any}
-            duration={state.timelineDuration}
-            currentTime={state.currentTime}
-            isPlaying={state.isPlaying}
-            playbackSpeed={state.playbackSpeed}
-            onTimeChange={handleTimeChange}
-            onPlayPause={handlePlayPause}
-            onSpeedChange={handleSpeedChange}
-          />
-        </div>
-      )}
     </div>
   );
 };

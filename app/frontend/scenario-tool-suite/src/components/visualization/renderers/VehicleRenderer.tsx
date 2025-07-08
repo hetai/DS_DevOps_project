@@ -18,6 +18,7 @@ interface VehicleRendererProps {
   showVehicleLabels?: boolean;
   playbackSpeed?: number;
   visible?: boolean;
+  performanceMode?: boolean;
   onVehicleClick?: (vehicleId: string) => void;
 }
 
@@ -27,6 +28,7 @@ interface VehicleProps {
   showTrajectory: boolean;
   showLabel: boolean;
   onClick?: () => void;
+  performanceMode?: boolean;
 }
 
 interface TrajectoryProps {
@@ -45,7 +47,7 @@ interface VehicleLabelProps {
 /**
  * Individual vehicle component
  */
-function Vehicle({ vehicle, currentTime, showTrajectory, showLabel, onClick }: VehicleProps) {
+function Vehicle({ vehicle, currentTime, showTrajectory, showLabel, onClick, performanceMode }: VehicleProps) {
   const vehicleGroupRef = useRef<THREE.Group>(null);
   const vehicleMeshRef = useRef<THREE.Mesh>(null);
   
@@ -69,10 +71,12 @@ function Vehicle({ vehicle, currentTime, showTrajectory, showLabel, onClick }: V
     });
   }, [vehicle.type]);
   
-  // Calculate current position and rotation based on timeline
+  // Calculate current position and rotation based on timeline with caching
   const currentTransform = useMemo(() => {
-    return calculateVehicleTransformAtTime(vehicle, currentTime);
-  }, [vehicle, currentTime]);
+    // Round currentTime to reduce unnecessary recalculations
+    const roundedTime = Math.round(currentTime * 10) / 10; // Round to 0.1s precision
+    return calculateVehicleTransformAtTime(vehicle, roundedTime);
+  }, [vehicle, Math.round(currentTime * 10)]);
   
   // Trajectory geometry
   const trajectoryGeometry = useMemo(() => {
@@ -91,22 +95,32 @@ function Vehicle({ vehicle, currentTime, showTrajectory, showLabel, onClick }: V
     });
   }, []);
   
-  // Update vehicle position and rotation
-  useFrame(() => {
-    if (vehicleGroupRef.current) {
-      vehicleGroupRef.current.position.copy(currentTransform.position);
-      vehicleGroupRef.current.rotation.copy(currentTransform.rotation);
+  // Update vehicle position and rotation with adaptive throttling
+  const lastUpdateTime = useRef(0);
+  
+  useFrame((state) => {
+    // Adaptive throttling based on performance mode
+    const updateInterval = performanceMode ? 0.1 : 0.05; // 100ms in performance mode, 50ms otherwise
+    
+    if (state.clock.elapsedTime - lastUpdateTime.current > updateInterval) {
+      if (vehicleGroupRef.current) {
+        vehicleGroupRef.current.position.copy(currentTransform.position);
+        vehicleGroupRef.current.rotation.copy(currentTransform.rotation);
+      }
+      lastUpdateTime.current = state.clock.elapsedTime;
     }
   });
   
-  // Add hover effect
+  // Add hover effect with reduced updates
   const [hovered, setHovered] = React.useState(false);
   
-  useFrame(() => {
-    if (vehicleMeshRef.current) {
-      vehicleMeshRef.current.material.opacity = hovered ? 1.0 : 0.9;
+  // Update material opacity only when hover state changes
+  useEffect(() => {
+    if (vehicleMeshRef.current && vehicleMeshRef.current.material) {
+      const material = vehicleMeshRef.current.material as THREE.MeshLambertMaterial;
+      material.opacity = hovered ? 1.0 : 0.9;
     }
-  });
+  }, [hovered]);
   
   // Cleanup
   useEffect(() => {
@@ -375,7 +389,62 @@ function calculateVehicleTransformAtTime(
     };
   }
   
-  // Calculate position along trajectory based on time
+  // Use timestamp-based interpolation if available
+  const trajectoryPoints = vehicle.trajectory as any[];
+  if (trajectoryPoints.length > 0 && trajectoryPoints[0].timestamp !== undefined) {
+    // Find the appropriate trajectory points based on timestamp
+    let currentIndex = 0;
+    let nextIndex = 1;
+    
+    for (let i = 0; i < trajectoryPoints.length - 1; i++) {
+      if (currentTime >= trajectoryPoints[i].timestamp && currentTime <= trajectoryPoints[i + 1].timestamp) {
+        currentIndex = i;
+        nextIndex = i + 1;
+        break;
+      }
+    }
+    
+    // Handle edge cases
+    if (currentTime <= trajectoryPoints[0].timestamp) {
+      const point = trajectoryPoints[0];
+      return {
+        position: new THREE.Vector3(point.position.x, point.position.y, point.position.z),
+        rotation: new THREE.Euler(point.rotation.x, point.rotation.y, point.rotation.z)
+      };
+    }
+    
+    if (currentTime >= trajectoryPoints[trajectoryPoints.length - 1].timestamp) {
+      const point = trajectoryPoints[trajectoryPoints.length - 1];
+      return {
+        position: new THREE.Vector3(point.position.x, point.position.y, point.position.z),
+        rotation: new THREE.Euler(point.rotation.x, point.rotation.y, point.rotation.z)
+      };
+    }
+    
+    // Interpolate between current and next points
+    const currentPoint = trajectoryPoints[currentIndex];
+    const nextPoint = trajectoryPoints[nextIndex];
+    const timeDelta = nextPoint.timestamp - currentPoint.timestamp;
+    const t = timeDelta > 0 ? (currentTime - currentPoint.timestamp) / timeDelta : 0;
+    
+    const currentPos = new THREE.Vector3(currentPoint.position.x, currentPoint.position.y, currentPoint.position.z);
+    const nextPos = new THREE.Vector3(nextPoint.position.x, nextPoint.position.y, nextPoint.position.z);
+    const position = currentPos.lerp(nextPos, t);
+    
+    const currentRot = new THREE.Euler(currentPoint.rotation.x, currentPoint.rotation.y, currentPoint.rotation.z);
+    const nextRot = new THREE.Euler(nextPoint.rotation.x, nextPoint.rotation.y, nextPoint.rotation.z);
+    
+    // Simple rotation interpolation (could be improved with quaternions)
+    const rotation = new THREE.Euler(
+      THREE.MathUtils.lerp(currentRot.x, nextRot.x, t),
+      THREE.MathUtils.lerp(currentRot.y, nextRot.y, t),
+      THREE.MathUtils.lerp(currentRot.z, nextRot.z, t)
+    );
+    
+    return { position, rotation };
+  }
+  
+  // Fallback to old method for Vector3 arrays
   const totalTime = 10; // Assume 10 second trajectory for now
   const progress = MathUtils.clamp(currentTime / totalTime, 0, 1);
   const trajectoryIndex = progress * (vehicle.trajectory.length - 1);
@@ -418,6 +487,23 @@ function calculateRotationFromTrajectory(trajectory: THREE.Vector3[], index: num
 }
 
 function calculateTrajectoryProgress(vehicle: VehicleElement, currentTime: number): number {
+  if (!vehicle.trajectory || vehicle.trajectory.length === 0) {
+    return 0;
+  }
+  
+  // Use timestamp-based progress if available
+  const trajectoryPoints = vehicle.trajectory as any[];
+  if (trajectoryPoints.length > 0 && trajectoryPoints[0].timestamp !== undefined) {
+    const startTime = trajectoryPoints[0].timestamp;
+    const endTime = trajectoryPoints[trajectoryPoints.length - 1].timestamp;
+    const totalTime = endTime - startTime;
+    
+    if (totalTime <= 0) return 1;
+    
+    return MathUtils.clamp((currentTime - startTime) / totalTime, 0, 1);
+  }
+  
+  // Fallback to old method
   const totalTime = 10; // Assume 10 second trajectory
   return MathUtils.clamp(currentTime / totalTime, 0, 1);
 }
@@ -459,6 +545,7 @@ export default function VehicleRenderer({
   showVehicleLabels = false,
   playbackSpeed = 1.0,
   visible = true,
+  performanceMode = false,
   onVehicleClick
 }: VehicleRendererProps) {
   const vehicleGroupRef = useRef<THREE.Group>(null);
@@ -496,8 +583,8 @@ export default function VehicleRenderer({
           key={vehicle.id}
           vehicle={vehicle}
           currentTime={currentTime}
-          showTrajectory={showTrajectories && (!lodEnabled || visibleVehicles.length < 50)}
-          showLabel={showVehicleLabels && (!lodEnabled || visibleVehicles.length < 30)}
+          showTrajectory={showTrajectories && (!lodEnabled || visibleVehicles.length < 50) && !performanceMode}
+          showLabel={showVehicleLabels && (!lodEnabled || visibleVehicles.length < 30) && !performanceMode}
           onClick={() => onVehicleClick?.(vehicle.id)}
         />
       ))}

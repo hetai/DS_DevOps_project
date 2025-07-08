@@ -372,8 +372,24 @@ export class GeometryUtils {
    */
   static calculateCenterlineLength(centerline: THREE.Vector3[]): number {
     let length = 0;
-    for (let i = 1; i < centerline.length; i++) {
-      length += centerline[i - 1].distanceTo(centerline[i]);
+    try {
+      for (let i = 1; i < centerline.length; i++) {
+        const p1 = centerline[i - 1];
+        const p2 = centerline[i];
+        
+        // Ensure both points are valid Vector3 objects
+        if (p1 && p2 && typeof p1.distanceTo === 'function') {
+          length += p1.distanceTo(p2);
+        } else {
+          // Fallback to manual distance calculation
+          const dx = (p2?.x || 0) - (p1?.x || 0);
+          const dy = (p2?.y || 0) - (p1?.y || 0);
+          const dz = (p2?.z || 0) - (p1?.z || 0);
+          length += Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+      }
+    } catch (error) {
+      console.warn('Error calculating centerline length:', error);
     }
     return length;
   }
@@ -405,10 +421,46 @@ export class GeometryUtils {
       return new THREE.BufferGeometry();
     }
     
-    // Create a tube geometry along the trajectory
-    const curve = new THREE.CatmullRomCurve3(points);
-    const geometry = new THREE.TubeGeometry(curve, points.length * 2, lineWidth, 8, false);
+    try {
+      // Validate points are proper Vector3 objects
+      const validPoints = points.filter(point => 
+        point && 
+        typeof point.x === 'number' && 
+        typeof point.y === 'number' && 
+        typeof point.z === 'number'
+      );
+      
+      if (validPoints.length < 2) {
+        console.warn('Not enough valid points for trajectory geometry');
+        return new THREE.BufferGeometry();
+      }
+      
+      // Create a tube geometry along the trajectory
+      const curve = new THREE.CatmullRomCurve3(validPoints);
+      const geometry = new THREE.TubeGeometry(curve, Math.max(2, validPoints.length * 2), lineWidth, 8, false);
+      
+      return geometry;
+    } catch (error) {
+      console.warn('Error creating trajectory geometry:', error);
+      // Fallback to simple line geometry
+      return this.createSimpleLineGeometry(points);
+    }
+  }
+  
+  /**
+   * Create simple line geometry as fallback
+   */
+  private static createSimpleLineGeometry(points: THREE.Vector3[]): THREE.BufferGeometry {
+    const geometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
     
+    for (const point of points) {
+      if (point && typeof point.x === 'number') {
+        positions.push(point.x, point.y || 0, point.z || 0);
+      }
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     return geometry;
   }
   
@@ -492,18 +544,25 @@ export class GeometryUtils {
    * Optimize geometry for performance
    */
   static optimizeGeometry(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
-    // Skip vertex merging for now - this was causing the error
-    // In modern Three.js, BufferGeometry handles vertex optimization internally
-    
-    // Compute bounding sphere for frustum culling
-    geometry.computeBoundingSphere();
-    
-    // Compute vertex normals if not present
-    if (!geometry.hasAttribute('normal')) {
-      geometry.computeVertexNormals();
+    try {
+      // Skip vertex merging for now - this was causing the error
+      // In modern Three.js, BufferGeometry handles vertex optimization internally
+      
+      // Compute bounding sphere for frustum culling
+      if (geometry && typeof geometry.computeBoundingSphere === 'function') {
+        geometry.computeBoundingSphere();
+      }
+      
+      // Compute vertex normals if not present
+      if (geometry && !geometry.hasAttribute('normal') && typeof geometry.computeVertexNormals === 'function') {
+        geometry.computeVertexNormals();
+      }
+      
+      return geometry;
+    } catch (error) {
+      console.warn('Geometry optimization failed:', error);
+      return geometry;
     }
-    
-    return geometry;
   }
   
   /**
