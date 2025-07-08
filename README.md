@@ -336,6 +336,110 @@ For more details, visit the interactive API documentation at `/docs` when the ba
 - **[Monitoring Deployment](docs/monitoring_deployment_summary.md)** - Grafana, Prometheus setup
 - **[OKRs](docs/OKR.md)** - Objectives and key results tracking
 
+## 📈 Monitoring & Observability
+
+### Comprehensive Monitoring Stack
+This project includes a complete monitoring solution with Prometheus, Grafana, Loki, and Tempo for full observability.
+
+### Quick Start Monitoring
+```bash
+# Start application with monitoring
+docker-compose -f docker-compose.dev.yml -f docker-compose.monitoring.yml up -d
+
+# View monitoring services
+echo "Grafana Dashboard: http://localhost:3001"
+echo "Prometheus: http://localhost:9090"
+echo "Backend Metrics: http://localhost:8080/metrics"
+echo "Health Check: http://localhost:8080/health"
+```
+
+### Monitoring Services
+
+#### Grafana Dashboard (Port 3001)
+- **Pre-configured Dashboards**: OpenSCENARIO system overview
+- **Data Sources**: Prometheus, Loki, Tempo integration
+- **Real-time Metrics**: API performance, workflow success rates
+- **Log Aggregation**: Centralized logging from all services
+- **Default Login**: admin/admin
+
+#### Prometheus (Port 9090)
+- **Metrics Collection**: Backend `/metrics` endpoint monitoring
+- **Alert Rules**: Performance and error rate alerting
+- **System Metrics**: CPU, memory, disk usage tracking
+- **Service Discovery**: Automatic container monitoring
+
+#### Application Metrics
+The backend provides comprehensive metrics:
+
+```bash
+# View all metrics
+curl http://localhost:8080/metrics
+
+# Health check
+curl http://localhost:8080/health
+```
+
+**Available Metrics:**
+- `openai_api_calls_success/error` - AI service performance
+- `workflow_step_*_success/error` - Workflow execution tracking
+- `openscenario_validation_*` - File validation metrics
+- `scenario_generation_*` - Generation performance
+- `http_request_duration` - API response times
+- System metrics (CPU, memory, disk usage)
+
+#### Log Management
+- **Promtail**: Automatic log collection from Docker containers
+- **Loki**: Centralized log storage and querying
+- **Structured Logging**: Application and system log aggregation
+- **Log Parsing**: Automatic parsing of application logs
+
+#### Alert Configuration
+Pre-configured alerts for:
+- High API response times (>2s)
+- Error rates (>10%)
+- OpenAI API failures
+- Workflow failures
+- System resource usage
+
+### Monitoring Commands
+```bash
+# Start monitoring stack only
+docker-compose -f docker-compose.monitoring.yml up -d
+
+# View monitoring logs
+docker-compose -f docker-compose.monitoring.yml logs -f
+
+# Stop monitoring
+docker-compose -f docker-compose.monitoring.yml down
+
+# Check monitoring service status
+docker-compose -f docker-compose.monitoring.yml ps
+```
+
+### Grafana Dashboard Features
+- **OpenSCENARIO System Overview**: Main dashboard with key metrics
+- **Service Health**: Real-time status of all services
+- **Performance Metrics**: API response times and throughput
+- **AI Service Tracking**: OpenAI API usage and success rates
+- **Workflow Analytics**: Step-by-step workflow performance
+- **System Resources**: CPU, memory, and disk usage
+- **Log Integration**: Live log streaming with filtering
+
+### Troubleshooting Monitoring
+```bash
+# Check if monitoring services are running
+docker ps | grep -E "(prometheus|grafana|loki|promtail|tempo)"
+
+# Verify Prometheus targets
+curl http://localhost:9090/api/v1/targets
+
+# Test metric collection
+curl http://localhost:8080/metrics
+
+# Check Grafana data sources
+# Visit http://localhost:3001 → Configuration → Data Sources
+```
+
 ### 🎯 Quick Links
 - **System Status**: ✅ FULLY OPERATIONAL
 - **Latest Update**: July 4, 2025
