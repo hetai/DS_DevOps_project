@@ -1,64 +1,271 @@
 # CloudSkiff diagrams-as-code representation of AWS architecture
-# Render with: diagrams generate --input-file aws_architecture.yaml --output-file aws_architecture.drawio
+# Render with: diagrams generate --input-file aws_architecture.yaml --output-file aws_architecture.png
 
 metadata:
-  name: openscenario-aws-architecture
+  name: ds-devops-aws-architecture
   diagram_type: aws
   version: 1
 
 nodes:
+  # Main AWS Cloud
+  aws_cloud:
+    type: aws_cloud
+    label: "AWS Cloud"
+  
+  # VPC and Network Components
   vpc:
     type: aws_vpc
     label: "VPC"
+    parent: aws_cloud
+  
+  # Public Subnet Group (AZ1)
+  public_subnet_az1_group:
+    type: aws_group
+    label: "Public Subnet AZ1"
+    parent: vpc
+    style:
+      border: "dashed"
+      border_color: "#2ecc71"
+  
+  # Public Subnet Group (AZ2)
+  public_subnet_az2_group:
+    type: aws_group
+    label: "Public Subnet AZ2"
+    parent: vpc
+    style:
+      border: "dashed"
+      border_color: "#2ecc71"
+  
+  # Private Subnet Group (AZ1)
+  private_subnet_az1_group:
+    type: aws_group
+    label: "Private Subnet AZ1"
+    parent: vpc
+    style:
+      border: "dashed"
+      border_color: "#e74c3c"
+  
+  # Private Subnet Group (AZ2)
+  private_subnet_az2_group:
+    type: aws_group
+    label: "Private Subnet AZ2"
+    parent: vpc
+    style:
+      border: "dashed"
+      border_color: "#e74c3c"
+  
+  # Internet Gateway
+  igw:
+    type: aws_internet_gateway
+    label: "Internet Gateway"
+    parent: vpc
+  
+  # NAT Gateway (in Public Subnet AZ1)
+  nat_gateway:
+    type: aws_nat_gateway
+    label: "NAT Gateway"
+    parent: public_subnet_az1_group
+  
+  # Load Balancing (in Public Subnet)
   alb:
     type: aws_alb
     label: "Application Load Balancer"
-    parent: vpc
+    parent: public_subnet_az1_group
+  
+  # Container Services
   ecs_cluster:
     type: aws_ecs_cluster
     label: "ECS Cluster"
     parent: vpc
-  ecs_frontend:
+  
+  # Backend Service (in Private Subnet)
+  ecs_service_backend:
     type: aws_ecs_service
-    label: "ECS Frontend Service"
-    parent: ecs_cluster
-  ecs_backend:
-    type: aws_ecs_service
-    label: "ECS Backend Service"
-    parent: ecs_cluster
+    label: "Backend API (Fargate)"
+    parent: private_subnet_az1_group
+  
+  # Database (in Private Subnet)
   rds:
     type: aws_rds_instance
-    label: "PostgreSQL RDS"
+    label: "PostgreSQL RDS (Multi-AZ)"
+    parent: private_subnet_az1_group
+  
+  rds_standby:
+    type: aws_rds_instance
+    label: "RDS Standby"
+    parent: private_subnet_az2_group
+  
+  rds_subnet_group:
+    type: aws_rds_subnet_group
+    label: "RDS Subnet Group"
     parent: vpc
-  s3_bucket:
+  
+  # Global Services (outside VPC)
+  global_services_group:
+    type: aws_group
+    label: "Global Services"
+    parent: aws_cloud
+    style:
+      border: "dashed"
+      border_color: "#3498db"
+  
+  # Storage
+  s3_frontend:
     type: aws_s3_bucket
-    label: "S3 Static Bucket"
+    label: "Frontend Static Assets"
+    parent: global_services_group
+  
+  s3_terraform_state:
+    type: aws_s3_bucket
+    label: "Terraform State"
+    parent: global_services_group
+  
+  # Content Delivery
   cloudfront:
     type: aws_cloudfront_distribution
-    label: "CloudFront"
+    label: "CloudFront Distribution"
+    parent: global_services_group
+  
+  # Container Registry
   ecr:
     type: aws_ecr_repository
-    label: "ECR"
+    label: "ECR Repositories"
+    parent: global_services_group
+  
+  # DNS and Certificates
+  route53:
+    type: aws_route53
+    label: "Route 53"
+    parent: global_services_group
+  
+  acm:
+    type: aws_acm
+    label: "SSL Certificate (ACM)"
+    parent: global_services_group
+  
+  # State Management
+  dynamodb:
+    type: aws_dynamodb_table
+    label: "DynamoDB (Terraform Lock)"
+    parent: global_services_group
+  
+  # Security
+  secrets_manager:
+    type: aws_secrets_manager
+    label: "Secrets Manager"
+    parent: global_services_group
+  
+  # Monitoring
+  cloudwatch:
+    type: aws_cloudwatch
+    label: "CloudWatch"
+    parent: global_services_group
+  
+  # Monitoring Stack (in Private Subnet)
+  monitoring_group:
+    type: aws_group
+    label: "Monitoring Stack"
+    parent: private_subnet_az1_group
+    style:
+      border: "dashed"
+      border_color: "#9b59b6"
+  
+  prometheus:
+    type: aws_ec2_instance
+    label: "Prometheus"
+    parent: monitoring_group
+  
+  grafana:
+    type: aws_ec2_instance
+    label: "Grafana"
+    parent: monitoring_group
+  
+  alertmanager:
+    type: aws_ec2_instance
+    label: "Alertmanager"
+    parent: monitoring_group
 
 edges:
-  - from: cloudfront
+  # Internet Access
+  - from: igw
+    to: vpc
+    label: "Internet Access"
+  
+  - from: private_subnet_1
+    to: nat_gateway
+    label: "Outbound Traffic"
+  
+  - from: private_subnet_2
+    to: nat_gateway
+    label: "Outbound Traffic"
+  
+  # DNS and Content Delivery
+  - from: route53
+    to: cloudfront
+    label: "www.example.com"
+  
+  - from: route53
     to: alb
-    label: "HTTPS"
+    label: "api.example.com"
+  
+  - from: cloudfront
+    to: s3_frontend
+    label: "Origin Access"
+  
+  - from: acm
+    to: cloudfront
+    label: "SSL"
+  
+  - from: acm
+    to: alb
+    label: "SSL"
+  
+  # Load Balancing
   - from: alb
-    to: ecs_frontend
-    label: "HTTP 80"
-  - from: alb
-    to: ecs_backend
-    label: "HTTP 80"
-  - from: ecs_backend
+    to: ecs_service_backend
+    label: "HTTP/HTTPS"
+  
+  # Database Access
+  - from: ecs_service_backend
     to: rds
     label: "PostgreSQL 5432"
-  - from: ecs_frontend
-    to: s3_bucket
-    label: "Static assets"
+  
+  - from: rds
+    to: rds_subnet_group
+    label: "Multi-AZ Deployment"
+  
+  # Container Registry
   - from: ecr
-    to: ecs_frontend
-    label: "Docker images"
-  - from: ecr
-    to: ecs_backend
-    label: "Docker images"
+    to: ecs_service_backend
+    label: "Docker Images"
+  
+  # State Management
+  - from: s3_terraform_state
+    to: dynamodb
+    label: "State Locking"
+  
+  # Secrets
+  - from: ecs_service_backend
+    to: secrets_manager
+    label: "Fetch Secrets"
+  
+  # Monitoring
+  - from: ecs_service_backend
+    to: cloudwatch
+    label: "Logs & Metrics"
+  
+  - from: rds
+    to: cloudwatch
+    label: "Logs & Metrics"
+  
+  - from: prometheus
+    to: ecs_service_backend
+    label: "Scrape Metrics"
+  
+  - from: grafana
+    to: prometheus
+    label: "Query Metrics"
+  
+  - from: alertmanager
+    to: prometheus
+    label: "Receive Alerts"

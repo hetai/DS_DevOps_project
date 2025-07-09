@@ -42,31 +42,7 @@ resource "aws_lb" "main" {
   }
 }
 
-# Create ALB Target Groups
-resource "aws_lb_target_group" "frontend" {
-  name        = "${var.environment}-frontend-tg"
-  port        = 80
-  protocol    = "HTTP"
-  vpc_id      = var.vpc_id
-  target_type = "ip"
-
-  health_check {
-    enabled             = true
-    interval            = 30
-    path                = "/"
-    port                = "traffic-port"
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    timeout             = 5
-    protocol            = "HTTP"
-    matcher             = "200"
-  }
-
-  tags = {
-    Name        = "${var.environment}-frontend-tg"
-    Environment = var.environment
-  }
-}
+# Create ALB Target Groups (Backend only)
 
 resource "aws_lb_target_group" "backend" {
   name        = "${var.environment}-backend-tg"
@@ -100,25 +76,29 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.frontend.arn
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "API access only. Frontend served via CloudFront."
+      status_code  = "404"
+    }
   }
 }
 
-# HTTPS listener disabled due to missing valid certificate
-# Uncomment and configure when a valid certificate is available
-# resource "aws_lb_listener" "https" {
-#   load_balancer_arn = aws_lb.main.arn
-#   port              = 443
-#   protocol          = "HTTPS"
-#   ssl_policy        = "ELBSecurityPolicy-2016-08"
-#   certificate_arn   = var.certificate_arn
-#
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_lb_target_group.frontend.arn
-#   }
-# }
+# HTTPS listener - enabled when certificate_arn is provided
+resource "aws_lb_listener" "https" {
+  count             = var.certificate_arn != "" ? 1 : 0
+  load_balancer_arn = aws_lb.main.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+}
 
 # Create ALB Listener Rules
 resource "aws_lb_listener_rule" "api" {
@@ -138,56 +118,7 @@ resource "aws_lb_listener_rule" "api" {
 }
 
 # Create ECS Task Definitions
-resource "aws_ecs_task_definition" "frontend" {
-  family                   = "${var.environment}-frontend"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = var.frontend_cpu
-  memory                   = var.frontend_memory
-  execution_role_arn       = var.ecs_task_execution_role_arn
-  task_role_arn            = var.ecs_task_role_arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "frontend"
-      image     = var.frontend_image_url
-      essential = true
-      portMappings = [
-        {
-          containerPort = 80
-          hostPort      = 80
-          protocol      = "tcp"
-        }
-      ]
-      environment = [
-        {
-          name  = "VITE_API_URL"
-          value = "/api"
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_logs.name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "frontend"
-        }
-      }
-      healthCheck = {
-        command     = ["CMD-SHELL", "wget --spider http://localhost:80/ || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 60
-      }
-    }
-  ])
-
-  tags = {
-    Name        = "${var.environment}-frontend-task"
-    Environment = var.environment
-  }
-}
+# Frontend task definition removed - frontend now served via S3 + CloudFront
 
 resource "aws_ecs_task_definition" "backend" {
   family                   = "${var.environment}-backend"
@@ -233,9 +164,19 @@ resource "aws_ecs_task_definition" "backend" {
         },
         {
           name  = "DATABASE_URL"
-          value = "postgresql://${var.db_username}:${var.db_password}@${var.db_endpoint}/${var.db_name}"
+          value = "postgresql://${var.db_username}:PLACEHOLDER@${var.db_endpoint}/${var.db_name}"
         }
       ]
+      secrets = var.db_secret_arn != "" ? [
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${var.db_secret_arn}:password::"
+        },
+        {
+          name      = "DB_USERNAME"
+          valueFrom = "${var.db_secret_arn}:username::"
+        }
+      ] : []
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -261,41 +202,7 @@ resource "aws_ecs_task_definition" "backend" {
 }
 
 # Create ECS Services
-resource "aws_ecs_service" "frontend" {
-  name            = "${var.environment}-frontend-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.frontend.arn
-  desired_count   = var.frontend_desired_count
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    security_groups  = [var.ecs_security_group_id]
-    subnets          = var.subnet_ids
-    assign_public_ip = false
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.frontend.arn
-    container_name   = "frontend"
-    container_port   = 80
-  }
-
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
-  }
-
-  deployment_controller {
-    type = "ECS"
-  }
-
-  tags = {
-    Name        = "${var.environment}-frontend-service"
-    Environment = var.environment
-  }
-
-  depends_on = [aws_lb_listener.http]
-}
+# Frontend ECS service removed - frontend now served via S3 + CloudFront
 
 resource "aws_ecs_service" "backend" {
   name            = "${var.environment}-backend-service"

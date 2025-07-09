@@ -54,3 +54,8 @@ output "frontend_url" {
   description = "URL to access the frontend application via CloudFront"
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
+
+output "s3_bucket_name" {
+  description = "Name of the S3 bucket for frontend static files"
+  value       = aws_s3_bucket.frontend.bucket
+}

@@ -1,7 +1,13 @@
 # DS_DevOps_project - Networking Module
 
-# Create VPC
+data "aws_vpc" "existing" {
+  count = var.existing_vpc_id != "" ? 1 : 0
+  id    = var.existing_vpc_id
+}
+
 resource "aws_vpc" "main" {
+  count = var.existing_vpc_id == "" ? 1 : 0
+
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -12,9 +18,13 @@ resource "aws_vpc" "main" {
   }
 }
 
+locals {
+  vpc_id = var.existing_vpc_id != "" ? data.aws_vpc.existing[0].id : aws_vpc.main[0].id
+}
+
 # Create Internet Gateway
 resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.vpc_id
 
   tags = {
     Name        = "${var.environment}-igw"
@@ -25,7 +35,7 @@ resource "aws_internet_gateway" "main" {
 # Create Public Subnets
 resource "aws_subnet" "public" {
   count                   = length(var.public_subnet_cidrs)
-  vpc_id                  = aws_vpc.main.id
+  vpc_id                  = local.vpc_id
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
@@ -39,7 +49,7 @@ resource "aws_subnet" "public" {
 # Create Private Subnets
 resource "aws_subnet" "private" {
   count             = length(var.private_subnet_cidrs)
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = local.vpc_id
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = var.availability_zones[count.index]
 
@@ -73,7 +83,7 @@ resource "aws_nat_gateway" "main" {
 
 # Create Route Tables
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.vpc_id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -87,7 +97,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.vpc_id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -101,17 +111,17 @@ resource "aws_route_table" "private" {
 }
 
 # Associate Route Tables with Subnets
-resource "aws_route_table_association" "public" {
-  count          = length(var.public_subnet_cidrs)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
+# resource "aws_route_table_association" "public" {
+#   count          = length(var.public_subnet_cidrs)
+#   subnet_id      = aws_subnet.public[count.index].id
+#   route_table_id = aws_route_table.public.id
+# }
 
-resource "aws_route_table_association" "private" {
-  count          = length(var.private_subnet_cidrs)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
-}
+# resource "aws_route_table_association" "private" {
+#   count          = length(var.private_subnet_cidrs)
+#   subnet_id      = aws_subnet.private[count.index].id
+#   route_table_id = aws_route_table.private.id
+# }
 
 # Create Security Groups
 
@@ -119,7 +129,7 @@ resource "aws_route_table_association" "private" {
 resource "aws_security_group" "alb" {
   name        = "${var.environment}-alb-sg"
   description = "Security group for the Application Load Balancer"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port   = 80
@@ -155,7 +165,7 @@ resource "aws_security_group" "alb" {
 resource "aws_security_group" "ecs" {
   name        = "${var.environment}-ecs-sg"
   description = "Security group for the ECS services"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port       = 0
@@ -183,7 +193,7 @@ resource "aws_security_group" "ecs" {
 resource "aws_security_group" "db" {
   name        = "${var.environment}-db-sg"
   description = "Security group for the RDS instance"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port       = 5432

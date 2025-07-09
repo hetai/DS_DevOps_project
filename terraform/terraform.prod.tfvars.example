@@ -1,0 +1,34 @@
+# Terraform variables for production environment
+# Copy this file to terraform.prod.tfvars and update the values
+
+environment = "prod"
+aws_region = "us-east-1"
+
+# VPC Configuration
+vpc_cidr = "10.2.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs = ["10.2.1.0/24", "10.2.2.0/24", "10.2.3.0/24"]
+private_subnet_cidrs = ["10.2.10.0/24", "10.2.20.0/24", "10.2.30.0/24"]
+
+# Database Configuration
+db_name = "openscenario_prod"
+db_username = "openscenario_user"
+db_password = "CHANGE_ME_prod_password_123"  # Change this to a secure password
+db_instance_class = "db.t3.medium"
+
+# Application Configuration
+openai_api_key = "CHANGE_ME_YOUR_OPENAI_API_KEY"  # Get from OpenAI console
+log_level = "ERROR"
+
+# SSL Certificate ARN (create in ACM first)
+# To create: aws acm request-certificate --domain-name yourdomain.com --validation-method DNS
+certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERTIFICATE_ID"
+
+# Default tags
+default_tags = {
+  Environment = "prod"
+  Project     = "OpenSCENARIO"
+  ManagedBy   = "Terraform"
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+}

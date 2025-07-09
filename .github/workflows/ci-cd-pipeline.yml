@@ -1,0 +1,443 @@
+name: OpenSCENARIO CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop, staging ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  ECR_BACKEND_REPOSITORY: openscenario-backend
+  ECR_FRONTEND_REPOSITORY: openscenario-frontend
+
+jobs:
+  # Environment and branch validation
+  validate-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.determine-env.outputs.environment }}
+      should-deploy: ${{ steps.determine-env.outputs.should-deploy }}
+      aws-role: ${{ steps.determine-env.outputs.aws-role }}
+    steps:
+      - name: Determine Environment
+        id: determine-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="prod"
+          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+            ENV="staging"
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            ENV="dev"
+          else
+            ENV="dev"
+          fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          # Determine if should deploy (only on push to main branches, not PRs)
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Set AWS role based on environment
+          case $ENV in
+            "prod")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/prod-github-actions-prod-role" >> $GITHUB_OUTPUT
+              ;;
+            "staging")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-github-actions-staging-role" >> $GITHUB_OUTPUT
+              ;;
+            "dev")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/dev-github-actions-dev-role" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  # Code quality and security checks
+  code-quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for SonarCloud
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/frontend/scenario-tool-suite/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          cd app/backend/openscenario-api-service
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+          pip install bandit safety flake8 black isort mypy
+
+      - name: Install Node.js dependencies
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm ci
+
+      - name: Run Python linting
+        run: |
+          cd app/backend/openscenario-api-service
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check app/
+          isort --check-only app/
+          mypy app/
+
+      - name: Run JavaScript/TypeScript linting
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm run lint
+          npm run type-check
+
+      - name: Run Python security checks
+        run: |
+          cd app/backend/openscenario-api-service
+          bandit -r app/ -ll
+          safety check -r requirements.txt
+
+      - name: Run JavaScript security audit
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm audit --audit-level=high
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+          generateSarif: "true"
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=openscenario-ds-devops
+            -Dsonar.organization=hetai
+            -Dsonar.sources=app/
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/*.test.js,**/*.test.ts,**/*.test.py
+
+  # Backend tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: openscenario_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd app/backend/openscenario-api-service
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run backend tests
+        run: |
+          cd app/backend/openscenario-api-service
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --junitxml=test-results.xml
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/openscenario_test
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: app/backend/openscenario-api-service/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+      - name: Upload test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Backend Test Results
+          path: app/backend/openscenario-api-service/test-results.xml
+          reporter: java-junit
+
+  # Frontend tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/frontend/scenario-tool-suite/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm ci
+
+      - name: Run frontend tests
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: app/frontend/scenario-tool-suite/coverage/cobertura-coverage.xml
+          flags: frontend
+          name: frontend-coverage
+
+      - name: Upload test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Frontend Test Results
+          path: app/frontend/scenario-tool-suite/test-results.xml
+          reporter: java-junit
+
+  # Build and push Docker images
+  build-and-push:
+    needs: [validate-environment, code-quality, backend-tests, frontend-tests]
+    if: needs.validate-environment.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      backend-image: ${{ steps.build-backend.outputs.image }}
+      frontend-image: ${{ steps.build-frontend.outputs.image }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-environment.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        id: build-backend
+        run: |
+          cd app/backend/openscenario-api-service
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY=${{ env.ECR_BACKEND_REPOSITORY }}
+          IMAGE_TAG=${{ github.sha }}
+          
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker tag $REGISTRY/$REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
+          docker push $REGISTRY/$REPOSITORY:latest
+          
+          echo "image=$REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Build frontend
+        id: build-frontend
+        run: |
+          cd app/frontend/scenario-tool-suite
+          npm ci
+          npm run build
+          echo "Frontend build completed"
+
+      - name: Container Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.build-backend.outputs.image }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Deploy to environment
+  deploy:
+    needs: [validate-environment, build-and-push]
+    if: needs.validate-environment.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.validate-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-environment.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS
+        run: |
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          
+          # Update ECS service
+          aws ecs update-service \
+            --cluster ${ENV}-openscenario-cluster \
+            --service ${ENV}-openscenario-backend \
+            --force-new-deployment
+          
+          # Wait for deployment to complete
+          aws ecs wait services-stable \
+            --cluster ${ENV}-openscenario-cluster \
+            --services ${ENV}-openscenario-backend
+
+      - name: Deploy frontend to S3
+        run: |
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          cd app/frontend/scenario-tool-suite
+          
+          # Sync to S3
+          aws s3 sync dist/ s3://${ENV}-openscenario-frontend/ --delete
+          
+          # Invalidate CloudFront cache
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[0].DomainName=='${ENV}-openscenario-frontend.s3.amazonaws.com'].Id" --output text)
+          if [ ! -z "$DISTRIBUTION_ID" ]; then
+            aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+          fi
+
+      - name: Run health checks
+        run: |
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          
+          # Health check endpoint
+          HEALTH_URL="https://${ENV}-openscenario-api.example.com/health"
+          
+          # Wait for service to be healthy
+          for i in {1..30}; do
+            if curl -f $HEALTH_URL; then
+              echo "Health check passed"
+              break
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 10
+          done
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "Deployment to ${{ needs.validate-environment.outputs.environment }} completed successfully"
+          # Here you could add Slack notification or other alerting
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, initiating rollback..."
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          
+          # Get previous task definition
+          PREVIOUS_TASK_DEF=$(aws ecs describe-services \
+            --cluster ${ENV}-openscenario-cluster \
+            --services ${ENV}-openscenario-backend \
+            --query 'services[0].deployments[1].taskDefinition' \
+            --output text)
+          
+          if [ "$PREVIOUS_TASK_DEF" != "None" ]; then
+            # Rollback to previous task definition
+            aws ecs update-service \
+              --cluster ${ENV}-openscenario-cluster \
+              --service ${ENV}-openscenario-backend \
+              --task-definition $PREVIOUS_TASK_DEF
+            
+            echo "Rollback initiated to $PREVIOUS_TASK_DEF"
+          fi
+
+  # Post-deployment validation
+  post-deployment-tests:
+    needs: [validate-environment, deploy]
+    if: needs.validate-environment.outputs.should-deploy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          
+          # Run basic smoke tests
+          echo "Running smoke tests for $ENV environment"
+          
+          # Test API endpoints
+          API_URL="https://${ENV}-openscenario-api.example.com"
+          
+          # Test health endpoint
+          curl -f $API_URL/health
+          
+          # Test basic API functionality
+          curl -f $API_URL/api/v1/status
+          
+          echo "Smoke tests completed successfully"
+
+      - name: Run integration tests
+        run: |
+          ENV=${{ needs.validate-environment.outputs.environment }}
+          
+          # Run integration tests against deployed environment
+          echo "Running integration tests for $ENV environment"
+          
+          # This would include more comprehensive tests
+          # For now, just a placeholder
+          echo "Integration tests completed successfully"

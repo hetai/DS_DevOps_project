@@ -1,0 +1,81 @@
+version: 0.2
+
+env:
+  variables:
+    NODE_ENV: production
+    CI: true
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies..."
+      - cd app/frontend/scenario-tool-suite
+      - npm ci
+      - echo "Node.js version:"
+      - node --version
+      - echo "NPM version:"
+      - npm --version
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Running code quality checks..."
+      - npm run lint
+      - echo "Running type checks..."
+      - npm run type-check
+      - echo "Running unit tests..."
+      - npm run test:coverage
+      - echo "Running security audit..."
+      - npm audit --audit-level=high
+      - echo "Running dependency vulnerability scan..."
+      - npx audit-ci --high
+
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      - echo "Building React application..."
+      - npm run build
+      - echo "Build completed successfully"
+      - echo "Running build validation..."
+      - ls -la dist/
+      - echo "Checking build artifacts..."
+      - if [ ! -f "dist/index.html" ]; then echo "Build failed - index.html not found"; exit 1; fi
+      - echo "Build artifacts validated"
+
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      - echo "Deploying to S3..."
+      - aws s3 sync dist/ s3://$S3_BUCKET/ --delete --exact-timestamps
+      - echo "Invalidating CloudFront cache..."
+      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+      - echo "Frontend deployment completed successfully"
+      - echo "Creating deployment summary..."
+      - echo "{\"deployment_time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"build_id\":\"$CODEBUILD_BUILD_ID\",\"commit\":\"$CODEBUILD_RESOLVED_SOURCE_VERSION\",\"environment\":\"$ENVIRONMENT\"}" > deployment-summary.json
+
+artifacts:
+  files:
+    - app/frontend/scenario-tool-suite/dist/**/*
+    - app/frontend/scenario-tool-suite/coverage/**/*
+    - app/frontend/scenario-tool-suite/test-results.xml
+    - app/frontend/scenario-tool-suite/deployment-summary.json
+  name: frontend-build-artifacts-$(date +%Y-%m-%d)
+
+reports:
+  frontend-test-reports:
+    files:
+      - app/frontend/scenario-tool-suite/test-results.xml
+    file-format: JUNITXML
+    base-directory: .
+  frontend-coverage-reports:
+    files:
+      - app/frontend/scenario-tool-suite/coverage/cobertura-coverage.xml
+    file-format: COBERTURAXML
+    base-directory: .
+
+cache:
+  paths:
+    - app/frontend/scenario-tool-suite/node_modules/**/*
+    - /root/.npm/**/*

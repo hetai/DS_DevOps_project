@@ -1,0 +1,320 @@
+global:
+  # Global configuration
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alertmanager@openscenario.com'
+  smtp_auth_username: 'alertmanager@openscenario.com'
+  smtp_auth_password: 'CHANGE_ME_SMTP_PASSWORD'
+  smtp_auth_secret: 'CHANGE_ME_SMTP_SECRET'
+  
+  # Slack configuration
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  
+  # PagerDuty configuration
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+  
+  # Resolve timeout
+  resolve_timeout: 5m
+
+# Templates for custom message formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default-receiver'
+  
+  routes:
+    # Critical alerts go to PagerDuty and Slack
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 30m
+      
+    # Warning alerts go to Slack only
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      group_interval: 10m
+      repeat_interval: 2h
+      
+    # Database alerts have special handling
+    - match:
+        alertname: PostgreSQLDown
+      receiver: 'database-alerts'
+      group_wait: 5s
+      group_interval: 1m
+      repeat_interval: 15m
+      
+    # Security alerts
+    - match_re:
+        alertname: (TooManyFailedLogins|SuspiciousActivity|TLSCertificateExpiry)
+      receiver: 'security-alerts'
+      group_wait: 5s
+      group_interval: 1m
+      repeat_interval: 30m
+      
+    # Business logic alerts
+    - match_re:
+        alertname: (LowScenarioGenerationRate|HighScenarioValidationFailures|LongProcessingTime)
+      receiver: 'business-alerts'
+      group_wait: 30s
+      group_interval: 15m
+      repeat_interval: 4h
+      
+    # Monitoring infrastructure alerts
+    - match_re:
+        alertname: (PrometheusTargetDown|GrafanaDown|AlertmanagerDown)
+      receiver: 'monitoring-alerts'
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 1h
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning alerts when critical alerts are firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+    
+  # Inhibit database connection alerts when database is down
+  - source_match:
+      alertname: 'PostgreSQLDown'
+    target_match_re:
+      alertname: '(PostgreSQLTooManyConnections|PostgreSQLSlowQueries|PostgreSQLDeadlocks)'
+    equal: ['instance']
+    
+  # Inhibit service alerts when entire service is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '(HighResponseTime|HighErrorRate)'
+    equal: ['instance']
+
+# Receivers configuration
+receivers:
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'devops@openscenario.com'
+        subject: 'OpenSCENARIO Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          {{ end }}
+        headers:
+          Subject: 'OpenSCENARIO Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'critical-alerts'
+    pagerduty_configs:
+      - routing_key: 'CHANGE_ME_PAGERDUTY_ROUTING_KEY'
+        description: 'Critical Alert: {{ .GroupLabels.alertname }}'
+        severity: 'critical'
+        details:
+          environment: '{{ .GroupLabels.environment }}'
+          instance: '{{ .GroupLabels.instance }}'
+          summary: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          description: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#critical-alerts'
+        title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* {{ .Labels.environment }}
+          *Instance:* {{ .Labels.instance }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+    
+    email_configs:
+      - to: 'devops@openscenario.com'
+        subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        body: |
+          CRITICAL ALERT FIRED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'warning-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* {{ .Labels.environment }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'warning'
+        send_resolved: true
+
+  - name: 'database-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#database-alerts'
+        title: '🗄️ Database Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* {{ .Labels.environment }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+    
+    email_configs:
+      - to: 'dba@openscenario.com'
+        subject: 'Database Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          DATABASE ALERT
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'security-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#security-alerts'
+        title: '🔒 Security Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* {{ .Labels.environment }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+    
+    email_configs:
+      - to: 'security@openscenario.com'
+        subject: '🔒 Security Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY ALERT
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'business-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#business-alerts'
+        title: '📊 Business Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* {{ .Labels.environment }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'warning'
+        send_resolved: true
+    
+    email_configs:
+      - to: 'product@openscenario.com'
+        subject: 'Business Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          BUSINESS ALERT
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'monitoring-alerts'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#monitoring'
+        title: '📈 Monitoring Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'warning'
+        send_resolved: true
+    
+    email_configs:
+      - to: 'devops@openscenario.com'
+        subject: 'Monitoring Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          MONITORING INFRASTRUCTURE ALERT
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+# Time intervals for muting alerts
+time_intervals:
+  - name: 'business-hours'
+    time_intervals:
+      - times:
+          - start_time: '09:00'
+            end_time: '17:00'
+        weekdays: ['monday:friday']
+        
+  - name: 'off-hours'
+    time_intervals:
+      - times:
+          - start_time: '17:00'
+            end_time: '09:00'
+        weekdays: ['monday:friday']
+      - weekdays: ['saturday', 'sunday']
+        
+  - name: 'maintenance-window'
+    time_intervals:
+      - times:
+          - start_time: '02:00'
+            end_time: '04:00'
+        weekdays: ['sunday']
+
+# Mute time intervals
+mute_time_intervals:
+  - name: 'weekend-maintenance'
+    time_intervals:
+      - times:
+          - start_time: '02:00'
+            end_time: '04:00'
+        weekdays: ['saturday', 'sunday']

@@ -1,0 +1,165 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'openscenario-cluster'
+    region: 'us-east-1'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # Backend API Service
+  - job_name: 'backend-api'
+    static_configs:
+      - targets: ['backend:8080']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+
+  # Frontend Service (Nginx metrics)
+  - job_name: 'frontend-nginx'
+    static_configs:
+      - targets: ['frontend:8081']
+    scrape_interval: 30s
+    metrics_path: /nginx_status
+    scrape_timeout: 10s
+
+  # Container Advisor (cAdvisor) for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # PostgreSQL Database
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Redis Cache (if used)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # AWS CloudWatch Exporter
+  - job_name: 'cloudwatch-exporter'
+    static_configs:
+      - targets: ['cloudwatch-exporter:9106']
+    scrape_interval: 60s
+    metrics_path: /metrics
+
+  # Custom application metrics
+  - job_name: 'app-metrics'
+    static_configs:
+      - targets: ['backend:8080']
+    scrape_interval: 15s
+    metrics_path: /api/metrics
+    scrape_timeout: 10s
+
+  # Health check endpoints
+  - job_name: 'health-checks'
+    static_configs:
+      - targets: ['backend:8080']
+    scrape_interval: 30s
+    metrics_path: /health
+    scrape_timeout: 5s
+
+  # Load balancer metrics (if applicable)
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['traefik:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Alertmanager metrics
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Blackbox exporter for external endpoint monitoring
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://api.openscenario.com/health
+        - https://app.openscenario.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # AWS ECS service discovery (for production)
+  - job_name: 'ecs-backend'
+    ec2_sd_configs:
+      - region: us-east-1
+        port: 8080
+        filters:
+          - name: tag:Service
+            values: ['backend']
+          - name: tag:Environment
+            values: ['prod', 'staging']
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Environment]
+        target_label: environment
+      - source_labels: [__meta_ec2_tag_Service]
+        target_label: service
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: __address__
+        replacement: '${1}:8080'
+
+  - job_name: 'ecs-frontend'
+    ec2_sd_configs:
+      - region: us-east-1
+        port: 8081
+        filters:
+          - name: tag:Service
+            values: ['frontend']
+          - name: tag:Environment
+            values: ['prod', 'staging']
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Environment]
+        target_label: environment
+      - source_labels: [__meta_ec2_tag_Service]
+        target_label: service
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: __address__
+        replacement: '${1}:8081'
