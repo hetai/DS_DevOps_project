@@ -29,6 +29,12 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "existing_vpc_id" {
+  description = "ID of an existing VPC to use. If empty, a new VPC will be created."
+  type        = string
+  default     = ""
+}
+
 variable "availability_zones" {
   description = "List of availability zones to use"
   type        = list(string)
@@ -108,4 +114,75 @@ variable "backend_memory" {
   description = "Memory for the backend container in MiB"
   type        = number
   default     = 1024
+}
+
+# Application Configuration Variables
+variable "openai_api_key" {
+  description = "OpenAI API key for AI services"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "log_level" {
+  description = "Application log level"
+  type        = string
+  default     = "INFO"
+  
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
+    error_message = "Log level must be one of: DEBUG, INFO, WARN, ERROR."
+  }
+}
+
+# ECS Service Configuration
+variable "frontend_desired_count" {
+  description = "Desired number of frontend tasks"
+  type        = number
+  default     = 1
+}
+
+variable "backend_desired_count" {
+  description = "Desired number of backend tasks"
+  type        = number
+  default     = 1
+}
+
+# SSL Certificate Configuration
+variable "certificate_arn" {
+  description = "ARN of the SSL certificate for HTTPS"
+  type        = string
+  default     = ""
+}
+
+# Domain Configuration
+variable "domain_name" {
+  description = "Main domain name for the application"
+  type        = string
+  default     = "example.com"
+}
+
+variable "api_subdomain" {
+  description = "Subdomain for backend API"
+  type        = string
+  default     = "api"
+}
+
+variable "www_subdomain" {
+  description = "Subdomain for frontend application"
+  type        = string
+  default     = "www"
+}
+
+# Route 53 Configuration
+variable "create_route53_zone" {
+  description = "Whether to create a new Route 53 hosted zone or use an existing one"
+  type        = bool
+  default     = false
+}
+
+variable "route53_zone_id" {
+  description = "ID of an existing Route 53 hosted zone (if create_route53_zone is false)"
+  type        = string
+  default     = ""
 }

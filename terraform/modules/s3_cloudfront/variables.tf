@@ -16,3 +16,15 @@ variable "certificate_arn" {
   type        = string
   default     = ""
 }
+
+variable "domain_name" {
+  description = "Main domain name for the application"
+  type        = string
+  default     = "example.com"
+}
+
+variable "www_subdomain" {
+  description = "Subdomain for frontend application"
+  type        = string
+  default     = "www"
+}

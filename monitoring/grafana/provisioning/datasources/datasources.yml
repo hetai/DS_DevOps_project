@@ -8,11 +8,18 @@ datasources:
     isDefault: true
     editable: true
     jsonData:
-      timeInterval: 15s
       httpMethod: POST
+      manageAlerts: true
+      alertmanagerUid: alertmanager
+      prometheusType: Prometheus
+      prometheusVersion: 2.40.0
+      cacheLevel: 'High'
+      disableRecordingRules: false
+      incrementalQueryOverlapWindow: 10m
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: tempo
+          url: http://tempo:3200/trace/${__value.raw}
 
   - name: Loki
     type: loki
@@ -20,11 +27,18 @@ datasources:
     url: http://loki:3100
     editable: true
     jsonData:
+      maxLines: 1000
       derivedFields:
-        - datasourceUid: tempo
-          matcherRegex: "trace_id=(\\w+)"
-          name: TraceID
-          url: "$${__value.raw}"
+        - name: TraceID
+          label: trace_id
+          url: http://tempo:3200/trace/${__value.raw}
+          datasourceUid: tempo
+          matcherRegex: 'trace_id=([0-9a-f]+)'
+        - name: SpanID
+          label: span_id
+          url: http://tempo:3200/trace/${__value.raw}
+          datasourceUid: tempo
+          matcherRegex: 'span_id=([0-9a-f]+)'
 
   - name: Tempo
     type: tempo
@@ -40,5 +54,23 @@ datasources:
         hide: false
       nodeGraph:
         enabled: true
+      traceQuery:
+        timeShiftEnabled: true
+        spanStartTimeShift: 1h
+        spanEndTimeShift: 1h
+      spanBar:
+        type: Tag
+        tag: http.status_code
       lokiSearch:
         datasourceUid: loki
+
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: true
+    uid: alertmanager
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: true
+      alertmanagerUid: alertmanager

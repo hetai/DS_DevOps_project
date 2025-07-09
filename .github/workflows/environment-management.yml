@@ -1,0 +1,394 @@
+name: Environment Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - create-environment
+          - destroy-environment
+          - update-infrastructure
+          - backup-database
+          - restore-database
+          - scale-services
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      parameters:
+        description: 'Additional parameters (JSON format)'
+        required: false
+        default: '{}'
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: 1.6.0
+
+jobs:
+  validate-input:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.validate.outputs.environment }}
+      action: ${{ steps.validate.outputs.action }}
+      parameters: ${{ steps.validate.outputs.parameters }}
+      aws-role: ${{ steps.validate.outputs.aws-role }}
+    steps:
+      - name: Validate inputs
+        id: validate
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          ACTION="${{ github.event.inputs.action }}"
+          PARAMS="${{ github.event.inputs.parameters }}"
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "parameters=$PARAMS" >> $GITHUB_OUTPUT
+          
+          # Set AWS role based on environment
+          case $ENV in
+            "prod")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/prod-github-actions-prod-role" >> $GITHUB_OUTPUT
+              ;;
+            "staging")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-github-actions-staging-role" >> $GITHUB_OUTPUT
+              ;;
+            "dev")
+              echo "aws-role=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/dev-github-actions-dev-role" >> $GITHUB_OUTPUT
+              ;;
+          esac
+          
+          # Validate parameters JSON
+          echo "$PARAMS" | jq . > /dev/null || (echo "Invalid JSON in parameters" && exit 1)
+
+  create-environment:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'create-environment'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create environment
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          
+          cd terraform
+          
+          # Initialize Terraform
+          terraform init
+          
+          # Create workspace for environment
+          terraform workspace new $ENV || terraform workspace select $ENV
+          
+          # Create terraform.tfvars for environment
+          cat > terraform.${ENV}.tfvars << EOF
+          environment = "$ENV"
+          aws_region = "${{ env.AWS_REGION }}"
+          
+          # Database configuration
+          db_name = "openscenario_${ENV}"
+          db_username = "openscenario_user"
+          
+          # ECS configuration
+          ecs_cluster_name = "${ENV}-openscenario-cluster"
+          ecs_service_name = "${ENV}-openscenario-backend"
+          
+          # S3 configuration
+          frontend_bucket_name = "${ENV}-openscenario-frontend"
+          
+          # Monitoring configuration
+          enable_monitoring = true
+          log_retention_days = 30
+          
+          # Security configuration
+          enable_waf = true
+          enable_secrets_manager = true
+          
+          # Tagging
+          tags = {
+            Environment = "$ENV"
+            Project = "OpenSCENARIO"
+            ManagedBy = "Terraform"
+            CreatedBy = "GitHub Actions"
+          }
+          EOF
+          
+          # Plan and apply
+          terraform plan -var-file=terraform.${ENV}.tfvars -out=tfplan
+          terraform apply tfplan
+          
+          echo "Environment $ENV created successfully"
+
+  destroy-environment:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'destroy-environment'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Destroy environment
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          
+          # Confirm this is not production
+          if [ "$ENV" == "prod" ]; then
+            echo "❌ Production environment destruction requires manual approval"
+            echo "Please contact the platform team for production changes"
+            exit 1
+          fi
+          
+          cd terraform
+          
+          # Initialize Terraform
+          terraform init
+          
+          # Select workspace
+          terraform workspace select $ENV
+          
+          # Destroy resources
+          terraform destroy -var-file=terraform.${ENV}.tfvars -auto-approve
+          
+          echo "Environment $ENV destroyed successfully"
+
+  update-infrastructure:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'update-infrastructure'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update infrastructure
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          
+          cd terraform
+          
+          # Initialize Terraform
+          terraform init
+          
+          # Select workspace
+          terraform workspace select $ENV
+          
+          # Plan changes
+          terraform plan -var-file=terraform.${ENV}.tfvars -out=tfplan
+          
+          # Apply changes
+          terraform apply tfplan
+          
+          echo "Infrastructure updated successfully for $ENV"
+
+  backup-database:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'backup-database'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create database backup
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          
+          # Create RDS snapshot
+          SNAPSHOT_ID="${ENV}-openscenario-db-backup-${TIMESTAMP}"
+          DB_INSTANCE_ID="${ENV}-openscenario-db"
+          
+          aws rds create-db-snapshot \
+            --db-instance-identifier $DB_INSTANCE_ID \
+            --db-snapshot-identifier $SNAPSHOT_ID
+          
+          echo "Database backup initiated: $SNAPSHOT_ID"
+          
+          # Wait for snapshot to complete
+          aws rds wait db-snapshot-completed \
+            --db-snapshot-identifier $SNAPSHOT_ID
+          
+          echo "Database backup completed: $SNAPSHOT_ID"
+
+  restore-database:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'restore-database'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Restore database
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          PARAMS='${{ needs.validate-input.outputs.parameters }}'
+          
+          # Get snapshot ID from parameters
+          SNAPSHOT_ID=$(echo "$PARAMS" | jq -r '.snapshot_id // empty')
+          
+          if [ -z "$SNAPSHOT_ID" ]; then
+            echo "❌ snapshot_id parameter is required for database restoration"
+            exit 1
+          fi
+          
+          # Prevent accidental production restoration
+          if [ "$ENV" == "prod" ]; then
+            echo "❌ Production database restoration requires manual approval"
+            echo "Please contact the platform team for production changes"
+            exit 1
+          fi
+          
+          NEW_DB_ID="${ENV}-openscenario-db-restored-$(date +%Y%m%d-%H%M%S)"
+          
+          # Restore from snapshot
+          aws rds restore-db-instance-from-db-snapshot \
+            --db-instance-identifier $NEW_DB_ID \
+            --db-snapshot-identifier $SNAPSHOT_ID
+          
+          echo "Database restoration initiated: $NEW_DB_ID"
+          
+          # Wait for restoration to complete
+          aws rds wait db-instance-available \
+            --db-instance-identifier $NEW_DB_ID
+          
+          echo "Database restoration completed: $NEW_DB_ID"
+
+  scale-services:
+    needs: validate-input
+    if: needs.validate-input.outputs.action == 'scale-services'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.validate-input.outputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate-input.outputs.aws-role }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Scale services
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          PARAMS='${{ needs.validate-input.outputs.parameters }}'
+          
+          # Get scaling parameters
+          DESIRED_COUNT=$(echo "$PARAMS" | jq -r '.desired_count // 1')
+          SERVICE_NAME=$(echo "$PARAMS" | jq -r '.service_name // "backend"')
+          
+          CLUSTER_NAME="${ENV}-openscenario-cluster"
+          FULL_SERVICE_NAME="${ENV}-openscenario-${SERVICE_NAME}"
+          
+          echo "Scaling $FULL_SERVICE_NAME to $DESIRED_COUNT instances"
+          
+          # Update service desired count
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $FULL_SERVICE_NAME \
+            --desired-count $DESIRED_COUNT
+          
+          # Wait for service to stabilize
+          aws ecs wait services-stable \
+            --cluster $CLUSTER_NAME \
+            --services $FULL_SERVICE_NAME
+          
+          echo "Service scaled successfully"
+
+  notification:
+    needs: [validate-input, create-environment, destroy-environment, update-infrastructure, backup-database, restore-database, scale-services]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        run: |
+          ENV=${{ needs.validate-input.outputs.environment }}
+          ACTION=${{ needs.validate-input.outputs.action }}
+          
+          # Determine overall status
+          if [ "${{ needs.create-environment.result }}" == "success" ] || \
+             [ "${{ needs.destroy-environment.result }}" == "success" ] || \
+             [ "${{ needs.update-infrastructure.result }}" == "success" ] || \
+             [ "${{ needs.backup-database.result }}" == "success" ] || \
+             [ "${{ needs.restore-database.result }}" == "success" ] || \
+             [ "${{ needs.scale-services.result }}" == "success" ]; then
+            STATUS="✅ SUCCESS"
+          else
+            STATUS="❌ FAILED"
+          fi
+          
+          echo "Environment management action completed:"
+          echo "Action: $ACTION"
+          echo "Environment: $ENV"
+          echo "Status: $STATUS"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Run ID: ${{ github.run_id }}"
+          
+          # Here you could add Slack notification or other alerting
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"Environment '$ENV' '$ACTION' '$STATUS'"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}

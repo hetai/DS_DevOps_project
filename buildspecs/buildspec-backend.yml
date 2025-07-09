@@ -1,0 +1,94 @@
+version: 0.2
+
+env:
+  variables:
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+  parameter-store:
+    DOCKER_USERNAME: /openscenario/docker/username
+    DOCKER_PASSWORD: /openscenario/docker/password
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+      docker: 20
+    commands:
+      - echo "Installing dependencies..."
+      - pip install --upgrade pip
+      - pip install pytest pytest-cov pytest-asyncio
+      - pip install flake8 black isort mypy
+      - pip install safety bandit
+      - echo "Docker version:"
+      - docker --version
+      - echo "Logging into Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Running security checks..."
+      - cd app/backend/openscenario-api-service
+      - pip install -r requirements.txt
+      - pip install -r requirements-test.txt
+      - echo "Running code quality checks..."
+      - flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+      - flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - black --check app/
+      - isort --check-only app/
+      - mypy app/
+      - echo "Running security scans..."
+      - safety check -r requirements.txt
+      - bandit -r app/ -ll
+      - echo "Running unit tests..."
+      - pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --junitxml=test-results.xml
+      - echo "Tests completed"
+
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      - echo "Building Docker image..."
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG -f Dockerfile .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:latest
+      - echo "Docker image built successfully"
+      - echo "Running container security scan..."
+      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:/root/.cache/ aquasecurity/trivy:latest image --exit-code 1 --no-progress --format table $REPOSITORY_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      - echo "Pushing Docker image to ECR..."
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:latest
+      - echo "Docker image pushed successfully"
+      - echo "Creating image definitions file..."
+      - printf '[{"name":"openscenario-backend","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo "Build completed on `date`"
+
+artifacts:
+  files:
+    - imagedefinitions.json
+    - app/backend/openscenario-api-service/test-results.xml
+    - app/backend/openscenario-api-service/coverage.xml
+  name: backend-build-artifacts-$(date +%Y-%m-%d)
+
+reports:
+  backend-test-reports:
+    files:
+      - app/backend/openscenario-api-service/test-results.xml
+    file-format: JUNITXML
+    base-directory: .
+  backend-coverage-reports:
+    files:
+      - app/backend/openscenario-api-service/coverage.xml
+    file-format: COBERTURAXML
+    base-directory: .
+
+cache:
+  paths:
+    - /root/.cache/pip/**/*
+    - /root/.cache/docker/**/*

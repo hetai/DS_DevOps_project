@@ -1,0 +1,170 @@
+version: 0.2
+
+env:
+  variables:
+    SONAR_SCANNER_VERSION: 4.8.0.2856
+    SNYK_VERSION: latest
+  secrets-manager:
+    SONAR_TOKEN: /openscenario/sonar/token
+    SNYK_TOKEN: /openscenario/snyk/token
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+      nodejs: 18
+      java: corretto17
+    commands:
+      - echo "Installing security scanning tools..."
+      - pip install bandit safety semgrep
+      - npm install -g snyk@$SNYK_VERSION
+      - npm install -g retire
+      - echo "Installing SonarQube Scanner..."
+      - wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONAR_SCANNER_VERSION-linux.zip
+      - unzip -q sonar-scanner-cli-$SONAR_SCANNER_VERSION-linux.zip
+      - mv sonar-scanner-$SONAR_SCANNER_VERSION-linux /opt/sonar-scanner
+      - ln -s /opt/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner
+      - echo "Installing additional security tools..."
+      - pip install cyclonedx-bom
+      - npm install -g @cyclonedx/cyclonedx-npm
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Authenticating with security services..."
+      - snyk auth $SNYK_TOKEN
+      - echo "Preparing security scan workspace..."
+      - mkdir -p security-reports
+      - echo "Current directory structure:"
+      - find . -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" | head -20
+
+  build:
+    commands:
+      - echo "Security scanning phase started on `date`"
+      
+      # Python Backend Security Scanning
+      - echo "=== Python Backend Security Scanning ==="
+      - cd app/backend/openscenario-api-service
+      - echo "Running Bandit security scan..."
+      - bandit -r app/ -f json -o ../../../security-reports/bandit-report.json || true
+      - bandit -r app/ -f txt -o ../../../security-reports/bandit-report.txt || true
+      
+      - echo "Running Safety dependency check..."
+      - safety check -r requirements.txt --json --output ../../../security-reports/safety-report.json || true
+      - safety check -r requirements.txt --output ../../../security-reports/safety-report.txt || true
+      
+      - echo "Running Semgrep static analysis..."
+      - semgrep --config=auto --json --output=../../../security-reports/semgrep-report.json app/ || true
+      - semgrep --config=auto --output=../../../security-reports/semgrep-report.txt app/ || true
+      
+      - echo "Generating Python SBOM..."
+      - cyclonedx-py requirements -o ../../../security-reports/python-sbom.json || true
+      
+      - cd ../../..
+      
+      # Frontend Security Scanning
+      - echo "=== Frontend Security Scanning ==="
+      - cd app/frontend/scenario-tool-suite
+      - echo "Running npm audit..."
+      - npm audit --json > ../../../security-reports/npm-audit-report.json || true
+      - npm audit > ../../../security-reports/npm-audit-report.txt || true
+      
+      - echo "Running Snyk vulnerability scan..."
+      - snyk test --json > ../../../security-reports/snyk-report.json || true
+      - snyk test > ../../../security-reports/snyk-report.txt || true
+      
+      - echo "Running Retire.js scan..."
+      - retire --js --json > ../../../security-reports/retire-report.json || true
+      - retire --js > ../../../security-reports/retire-report.txt || true
+      
+      - echo "Generating Node.js SBOM..."
+      - cyclonedx-npm --output-file ../../../security-reports/nodejs-sbom.json || true
+      
+      - cd ../../..
+      
+      # SonarQube Analysis
+      - echo "=== SonarQube Analysis ==="
+      - echo "Running SonarQube analysis..."
+      - sonar-scanner \
+          -Dsonar.projectKey=openscenario-$ENVIRONMENT \
+          -Dsonar.projectName="OpenSCENARIO-$ENVIRONMENT" \
+          -Dsonar.sources=app/ \
+          -Dsonar.exclusions="**/node_modules/**,**/dist/**,**/build/**,**/*.test.js,**/*.test.ts,**/*.test.py" \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=$SONAR_TOKEN \
+          -Dsonar.python.coverage.reportPaths=app/backend/openscenario-api-service/coverage.xml \
+          -Dsonar.javascript.lcov.reportPaths=app/frontend/scenario-tool-suite/coverage/lcov.info \
+          -Dsonar.qualitygate.wait=true || true
+      
+      # Docker Image Security Scanning
+      - echo "=== Docker Image Security Scanning ==="
+      - echo "Running Trivy container scan..."
+      - if [ -f "imagedefinitions.json" ]; then
+          IMAGE_URI=$(cat imagedefinitions.json | jq -r '.[0].imageUri')
+          echo "Scanning image: $IMAGE_URI"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasecurity/trivy:latest image --format json --output security-reports/trivy-report.json $IMAGE_URI || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasecurity/trivy:latest image --format table --output security-reports/trivy-report.txt $IMAGE_URI || true
+        else
+          echo "No Docker image found to scan"
+        fi
+      
+      # Infrastructure Security Scanning
+      - echo "=== Infrastructure Security Scanning ==="
+      - echo "Running Checkov on Terraform files..."
+      - pip install checkov
+      - checkov -d terraform/ --framework terraform --output json --output-file security-reports/checkov-report.json || true
+      - checkov -d terraform/ --framework terraform --output cli --output-file security-reports/checkov-report.txt || true
+      
+      - echo "Security scanning completed"
+
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      - echo "Collecting security scan results..."
+      - ls -la security-reports/
+      - echo "Uploading security reports to S3..."
+      - aws s3 cp security-reports/ s3://$ARTIFACTS_BUCKET/security-scans/$ENVIRONMENT/$(date +%Y%m%d-%H%M%S)/ --recursive
+      - echo "Generating security summary..."
+      - python3 -c "
+import json
+import os
+import glob
+
+summary = {
+    'scan_date': '$(date -u +%Y-%m-%dT%H:%M:%SZ)',
+    'environment': '$ENVIRONMENT',
+    'build_id': '$CODEBUILD_BUILD_ID',
+    'reports_generated': []
+}
+
+for report_file in glob.glob('security-reports/*'):
+    report_name = os.path.basename(report_file)
+    file_size = os.path.getsize(report_file)
+    summary['reports_generated'].append({
+        'name': report_name,
+        'size_bytes': file_size,
+        'path': report_file
+    })
+
+with open('security-reports/security-summary.json', 'w') as f:
+    json.dump(summary, f, indent=2)
+"
+      - echo "Security analysis completed on `date`"
+
+artifacts:
+  files:
+    - security-reports/**/*
+  name: security-scan-artifacts-$(date +%Y-%m-%d)
+
+reports:
+  security-scan-reports:
+    files:
+      - security-reports/security-summary.json
+    file-format: JUNITXML
+    base-directory: .
+
+cache:
+  paths:
+    - /root/.cache/pip/**/*
+    - /root/.npm/**/*
+    - /root/.cache/trivy/**/*

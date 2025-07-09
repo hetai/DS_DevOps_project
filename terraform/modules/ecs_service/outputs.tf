@@ -10,6 +10,11 @@ output "cluster_arn" {
   value       = aws_ecs_cluster.main.arn
 }
 
+output "cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = aws_ecs_cluster.main.name
+}
+
 output "alb_id" {
   description = "ID of the Application Load Balancer"
   value       = aws_lb.main.id
@@ -30,30 +35,33 @@ output "alb_zone_id" {
   value       = aws_lb.main.zone_id
 }
 
-output "frontend_target_group_arn" {
-  description = "ARN of the frontend target group"
-  value       = aws_lb_target_group.frontend.arn
-}
+# Frontend resources have been moved to S3 + CloudFront
+# output "frontend_target_group_arn" {
+#   description = "ARN of the frontend target group"
+#   value       = aws_lb_target_group.frontend.arn
+# }
 
 output "backend_target_group_arn" {
   description = "ARN of the backend target group"
   value       = aws_lb_target_group.backend.arn
 }
 
-output "frontend_service_id" {
-  description = "ID of the frontend ECS service"
-  value       = aws_ecs_service.frontend.id
-}
+# Frontend resources have been moved to S3 + CloudFront
+# output "frontend_service_id" {
+#   description = "ID of the frontend ECS service"
+#   value       = aws_ecs_service.frontend.id
+# }
 
 output "backend_service_id" {
   description = "ID of the backend ECS service"
   value       = aws_ecs_service.backend.id
 }
 
-output "frontend_task_definition_arn" {
-  description = "ARN of the frontend task definition"
-  value       = aws_ecs_task_definition.frontend.arn
-}
+# Frontend resources have been moved to S3 + CloudFront
+# output "frontend_task_definition_arn" {
+#   description = "ARN of the frontend task definition"
+#   value       = aws_ecs_task_definition.frontend.arn
+# }
 
 output "backend_task_definition_arn" {
   description = "ARN of the backend task definition"

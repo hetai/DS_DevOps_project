@@ -1,6 +1,10 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    cluster: 'openscenario-dev'
+    replica: 'prometheus-1'
+    environment: 'development'
 
 rule_files:
   - "alert.rules"
@@ -9,7 +13,7 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          # - alertmanager:9093
+          - alertmanager:9093
 
 scrape_configs:
   # OpenSCENARIO Backend Service
@@ -58,3 +62,25 @@ scrape_configs:
       - targets: ['loki:3100']
     metrics_path: '/metrics'
     scrape_interval: 30s
+
+  # Tempo monitoring
+  - job_name: 'tempo'
+    static_configs:
+      - targets: ['tempo:3200']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+# Storage configuration for development environment
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true

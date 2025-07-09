@@ -45,7 +45,8 @@ metrics_generator:
   registry:
     external_labels:
       source: tempo
-      cluster: docker-compose
+      cluster: openscenario-dev
+      environment: development
   storage:
     path: /var/tempo/generator/wal
     remote_write:
@@ -63,7 +64,49 @@ storage:
       max_workers: 100
       queue_depth: 10000
 
+querier:
+  max_concurrent_queries: 20
+  search:
+    query_timeout: 30s
+    prefer_self: 10
+
+query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1.073741824e+09
+  trace_by_id:
+    duration_slo: 5s
+
 overrides:
   defaults:
+    # OpenSCENARIO specific configurations
+    max_traces_per_user: 50000
+    max_bytes_per_trace: 5000000
+    max_search_bytes_per_trace: 1000000
+    ingestion_rate_limit_bytes: 20000000
+    ingestion_burst_size_bytes: 30000000
+    
+    # Metrics generator configuration
     metrics_generator:
       processors: [service-graphs, span-metrics]
+      generate_native_histograms: true
+      
+    # Search configuration
+    max_search_duration: 24h
+    block_retention: 24h
+
+# Development environment specific settings
+target: all
+auth_enabled: false
+multitenancy_enabled: false
+
+# Logging configuration
+log_level: info
+log_format: json
+
+# Memberlist configuration for development
+memberlist:
+  abort_if_cluster_join_fails: false
+  bind_port: 7946
+  join_members:
+    - tempo:7946

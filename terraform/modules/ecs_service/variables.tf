@@ -47,26 +47,11 @@ variable "ecs_task_role_arn" {
   default     = ""
 }
 
-variable "frontend_image_url" {
-  description = "URL of the frontend Docker image"
-  type        = string
-}
+# Frontend variables removed - frontend now served via S3 + CloudFront
 
 variable "backend_image_url" {
   description = "URL of the backend Docker image"
   type        = string
-}
-
-variable "frontend_cpu" {
-  description = "CPU units for the frontend container"
-  type        = number
-  default     = 256
-}
-
-variable "frontend_memory" {
-  description = "Memory for the frontend container in MiB"
-  type        = number
-  default     = 512
 }
 
 variable "backend_cpu" {
@@ -79,12 +64,6 @@ variable "backend_memory" {
   description = "Memory for the backend container in MiB"
   type        = number
   default     = 1024
-}
-
-variable "frontend_desired_count" {
-  description = "Desired number of frontend tasks"
-  type        = number
-  default     = 2
 }
 
 variable "backend_desired_count" {
@@ -118,4 +97,30 @@ variable "db_password" {
   description = "Password for the database"
   type        = string
   sensitive   = true
+}
+
+# Secrets Manager Integration
+variable "db_secret_arn" {
+  description = "ARN of the database secret in AWS Secrets Manager"
+  type        = string
+  default     = ""
+}
+
+variable "app_secret_arn" {
+  description = "ARN of the application secret in AWS Secrets Manager"
+  type        = string
+  default     = ""
+}
+
+# Domain Configuration
+variable "domain_name" {
+  description = "Main domain name for the application"
+  type        = string
+  default     = ""
+}
+
+variable "api_subdomain" {
+  description = "Subdomain for backend API"
+  type        = string
+  default     = "api"
 }
