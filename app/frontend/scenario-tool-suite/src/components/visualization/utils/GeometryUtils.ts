@@ -402,12 +402,143 @@ export class GeometryUtils {
     width: number = 2.0,
     height: number = 1.5
   ): THREE.BufferGeometry {
-    const geometry = new THREE.BoxGeometry(length, width, height);
+    // Create enhanced vehicle geometry with more realistic shape
+    const geometry = this.createEnhancedVehicleShape(length, width, height);
     
     // Move pivot to center-bottom of vehicle
     geometry.translate(0, 0, height / 2);
     
     return geometry;
+  }
+  
+  /**
+   * Create enhanced vehicle shape with more realistic proportions
+   */
+  static createEnhancedVehicleShape(
+    length: number,
+    width: number,
+    height: number
+  ): THREE.BufferGeometry {
+    const group = new THREE.Group();
+    
+    // Main body (slightly smaller than full dimensions)
+    const bodyGeometry = new THREE.BoxGeometry(length * 0.9, width * 0.9, height * 0.6);
+    const bodyMesh = new THREE.Mesh(bodyGeometry);
+    bodyMesh.position.z = height * 0.3;
+    group.add(bodyMesh);
+    
+    // Cabin/roof (smaller and higher)
+    const cabinGeometry = new THREE.BoxGeometry(length * 0.6, width * 0.8, height * 0.4);
+    const cabinMesh = new THREE.Mesh(cabinGeometry);
+    cabinMesh.position.z = height * 0.8;
+    group.add(cabinMesh);
+    
+    // Front bumper
+    const bumperGeometry = new THREE.BoxGeometry(length * 0.1, width * 0.7, height * 0.2);
+    const frontBumper = new THREE.Mesh(bumperGeometry);
+    frontBumper.position.x = length * 0.5;
+    frontBumper.position.z = height * 0.1;
+    group.add(frontBumper);
+    
+    // Rear bumper
+    const rearBumper = new THREE.Mesh(bumperGeometry);
+    rearBumper.position.x = -length * 0.5;
+    rearBumper.position.z = height * 0.1;
+    group.add(rearBumper);
+    
+    // Convert group to single geometry
+    const mergedGeometry = this.mergeGroupGeometries(group);
+    
+    // Clean up
+    group.clear();
+    
+    return mergedGeometry;
+  }
+  
+  /**
+   * Merge multiple geometries from a group into a single geometry
+   */
+  static mergeGroupGeometries(group: THREE.Group): THREE.BufferGeometry {
+    const geometries: THREE.BufferGeometry[] = [];
+    
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        const geometry = child.geometry.clone();
+        geometry.applyMatrix4(child.matrix);
+        geometries.push(geometry);
+      }
+    });
+    
+    if (geometries.length === 0) {
+      return new THREE.BoxGeometry(1, 1, 1);
+    }
+    
+    if (geometries.length === 1) {
+      return geometries[0];
+    }
+    
+    // Merge geometries
+    const mergedGeometry = new THREE.BufferGeometry();
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    
+    let indexOffset = 0;
+    
+    for (const geometry of geometries) {
+      const positionAttr = geometry.getAttribute('position');
+      const normalAttr = geometry.getAttribute('normal');
+      const uvAttr = geometry.getAttribute('uv');
+      const indexAttr = geometry.getIndex();
+      
+      if (positionAttr) {
+        positions.push(...Array.from(positionAttr.array));
+      }
+      
+      if (normalAttr) {
+        normals.push(...Array.from(normalAttr.array));
+      } else {
+        // Generate normals if not present
+        const vertexCount = positionAttr ? positionAttr.count : 0;
+        for (let i = 0; i < vertexCount; i++) {
+          normals.push(0, 0, 1); // Default up normal
+        }
+      }
+      
+      if (uvAttr) {
+        uvs.push(...Array.from(uvAttr.array));
+      } else {
+        // Generate UVs if not present
+        const vertexCount = positionAttr ? positionAttr.count : 0;
+        for (let i = 0; i < vertexCount; i++) {
+          uvs.push(0, 0); // Default UV
+        }
+      }
+      
+      if (indexAttr) {
+        const geometryIndices = Array.from(indexAttr.array).map(i => i + indexOffset);
+        indices.push(...geometryIndices);
+      }
+      
+      indexOffset += positionAttr ? positionAttr.count : 0;
+    }
+    
+    mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    mergedGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    
+    if (indices.length > 0) {
+      mergedGeometry.setIndex(indices);
+    }
+    
+    mergedGeometry.computeBoundingBox();
+    mergedGeometry.computeBoundingSphere();
+    
+    // Clean up source geometries
+    geometries.forEach(geo => geo.dispose());
+    
+    return mergedGeometry;
   }
   
   /**
@@ -450,7 +581,7 @@ export class GeometryUtils {
   /**
    * Create simple line geometry as fallback
    */
-  private static createSimpleLineGeometry(points: THREE.Vector3[]): THREE.BufferGeometry {
+  static createSimpleLineGeometry(points: THREE.Vector3[]): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry();
     const positions: number[] = [];
     
@@ -462,6 +593,92 @@ export class GeometryUtils {
     
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     return geometry;
+  }
+
+  /**
+   * Create dashed line geometry from a series of points.
+   */
+  static createDashedLineGeometry(
+    points: THREE.Vector3[],
+    dashSize: number = 0.5,
+    gapSize: number = 0.25,
+    lineWidth: number = 0.1
+  ): THREE.BufferGeometry {
+    if (points.length < 2) {
+      return new THREE.BufferGeometry();
+    }
+
+    const geometries: THREE.BufferGeometry[] = [];
+    const curve = new THREE.CatmullRomCurve3(points);
+    const curveLength = curve.getLength();
+    
+    let currentPos = 0;
+    while (currentPos < curveLength) {
+      const dashStart = currentPos;
+      const dashEnd = Math.min(currentPos + dashSize, curveLength);
+      
+      if (dashEnd > dashStart) {
+        const dashPoints = curve.getPoints(Math.ceil((dashEnd - dashStart) * 10));
+        if (dashPoints.length > 1) {
+          const dashCurve = new THREE.CatmullRomCurve3(dashPoints);
+          const dashGeometry = new THREE.TubeGeometry(dashCurve, dashPoints.length, lineWidth, 8, false);
+          geometries.push(dashGeometry);
+        }
+      }
+      
+      currentPos += dashSize + gapSize;
+    }
+
+    if (geometries.length === 0) {
+      return new THREE.BufferGeometry();
+    }
+
+    const mergedGeometry = this.mergeGeometries(geometries);
+    geometries.forEach(g => g.dispose());
+
+    return mergedGeometry;
+  }
+
+  /**
+   * A utility to merge geometries which is missing from the class
+   */
+  static mergeGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry {
+      const mergedGeometry = new THREE.BufferGeometry();
+      const positions: number[] = [];
+      const normals: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+      let indexOffset = 0;
+
+      for (const geometry of geometries) {
+          const positionAttr = geometry.getAttribute('position');
+          const normalAttr = geometry.getAttribute('normal');
+          const uvAttr = geometry.getAttribute('uv');
+          const indexAttr = geometry.getIndex();
+
+          if (positionAttr) {
+              positions.push(...Array.from(positionAttr.array));
+          }
+          if (normalAttr) {
+              normals.push(...Array.from(normalAttr.array));
+          }
+          if (uvAttr) {
+              uvs.push(...Array.from(uvAttr.array));
+          }
+          if (indexAttr) {
+              const geometryIndices = Array.from(indexAttr.array).map(i => i + indexOffset);
+              indices.push(...geometryIndices);
+          }
+          indexOffset += positionAttr ? positionAttr.count : 0;
+      }
+
+      mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+      mergedGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      if (indices.length > 0) {
+          mergedGeometry.setIndex(indices);
+      }
+      return mergedGeometry;
   }
   
   /**

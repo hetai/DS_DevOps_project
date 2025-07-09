@@ -21,5 +21,5 @@ ENV LOG_LEVEL=DEBUG
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Command to run the application with simple backend
-CMD ["uvicorn", "app.main_simple:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+# Command to run the application with working backend
+CMD ["uvicorn", "app.main_working:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]

@@ -32,7 +32,7 @@ export class DataAdapter {
             
             // Try to find initial position
             const initActions = doc.querySelectorAll('TeleportAction');
-            let startPosition = new THREE.Vector3(index * 15, 0, 0); // Default spacing
+            let startPosition = new THREE.Vector3(index * 15, 0, 1.0); // 默认间距，车辆在道路上方
             
             if (initActions.length > index) {
               const positionElement = initActions[index].querySelector('Position');
@@ -42,7 +42,7 @@ export class DataAdapter {
                   startPosition = new THREE.Vector3(
                     parseFloat(worldPos.getAttribute('x') || '0'),
                     parseFloat(worldPos.getAttribute('y') || '0'),
-                    parseFloat(worldPos.getAttribute('z') || '0')
+                    Math.max(parseFloat(worldPos.getAttribute('z') || '0'), 1.0) // 确保车辆在道路上方
                   );
                 }
               }
@@ -58,7 +58,8 @@ export class DataAdapter {
               rotation: new THREE.Euler(0, 0, 0),
               speed: 0,
               timestamp: 0,
-              trajectory: trajectory
+              trajectory: trajectory.map(point => point.position), // 只提取位置信息
+              isEgo: index === 0 // 第一个车辆设为自车
             });
           });
         } catch (error) {
@@ -69,10 +70,14 @@ export class DataAdapter {
     
     // If no vehicles found, create default vehicles with trajectories for demonstration
     if (vehicles.length === 0) {
+      console.log('Creating default demo vehicles with ego vehicle');
       // Create multiple demo vehicles with different trajectories
       for (let i = 0; i < 3; i++) {
-        const startPos = new THREE.Vector3(i * 20 - 20, 0, 0);
+        const startPos = new THREE.Vector3(i * 20 - 20, 0, 1.0); // 将车辆放在道路上方1米处
         const trajectory = this.generateVehicleTrajectory(startPos, i, 30);
+        const isEgo = i === 0; // 第一个车辆设为自车
+        
+        console.log(`Creating vehicle ${i}: isEgo=${isEgo}, position:`, startPos);
         
         vehicles.push({
           id: `demo_vehicle_${i}`,
@@ -81,10 +86,13 @@ export class DataAdapter {
           rotation: new THREE.Euler(0, 0, 0),
           speed: 0,
           timestamp: 0,
-          trajectory: trajectory
+          trajectory: trajectory.map(point => point.position), // 只提取位置信息
+          isEgo: isEgo // 明确标记自车
         });
       }
     }
+    
+    console.log('Generated vehicles:', vehicles.map(v => ({ id: v.id, isEgo: v.isEgo, position: v.position })));
     
     return vehicles;
   }
@@ -124,7 +132,7 @@ export class DataAdapter {
           position = new THREE.Vector3(
             startPosition.x + (normalizedTime * 100), // Move 100 units forward
             startPosition.y,
-            startPosition.z
+            Math.max(startPosition.z, 1.0) // 保持在道路上方
           );
           rotation = new THREE.Euler(0, 0, 0);
           speed = baseSpeed;
@@ -136,7 +144,7 @@ export class DataAdapter {
           position = new THREE.Vector3(
             startPosition.x + Math.cos(angle) * radius,
             startPosition.y + Math.sin(angle) * radius,
-            startPosition.z
+            Math.max(startPosition.z, 1.0) // 保持在道路上方
           );
           rotation = new THREE.Euler(0, 0, angle + Math.PI / 2); // Face direction of movement
           speed = baseSpeed;
@@ -148,7 +156,7 @@ export class DataAdapter {
           position = new THREE.Vector3(
             startPosition.x + Math.sin(angle8) * scale,
             startPosition.y + Math.sin(angle8 * 2) * scale * 0.5,
-            startPosition.z
+            Math.max(startPosition.z, 1.0) // 保持在道路上方
           );
           // Calculate rotation based on movement direction
           const dx = Math.cos(angle8) * scale;
@@ -304,17 +312,55 @@ export class DataAdapter {
           const roads = Array.from(doc.querySelectorAll('road'));
           const junctions = Array.from(doc.querySelectorAll('junction'));
           
+          // Parse road geometry data for proper rendering
+          const parsedRoads = roads.map((road, index) => {
+            const planViewElement = road.querySelector('planView');
+            const lanesElement = road.querySelector('lanes');
+            
+            // Extract plan view geometry
+            let planView = [];
+            if (planViewElement) {
+              const geometries = planViewElement.querySelectorAll('geometry');
+              planView = Array.from(geometries).map(geom => ({
+                s: parseFloat(geom.getAttribute('s') || '0'),
+                x: parseFloat(geom.getAttribute('x') || '0'),
+                y: parseFloat(geom.getAttribute('y') || '0'),
+                hdg: parseFloat(geom.getAttribute('hdg') || '0'),
+                length: parseFloat(geom.getAttribute('length') || '100'),
+                type: geom.querySelector('line') ? 'line' : 'unknown'
+              }));
+            }
+            
+            // Extract lane information
+            let lanes = null;
+            if (lanesElement) {
+              const laneSections = lanesElement.querySelectorAll('laneSection');
+              lanes = {
+                laneSection: Array.from(laneSections).map(section => ({
+                  s: parseFloat(section.getAttribute('s') || '0'),
+                  left: this.parseLaneSide(section.querySelector('left')),
+                  center: this.parseLaneSide(section.querySelector('center')),
+                  right: this.parseLaneSide(section.querySelector('right'))
+                }))
+              };
+            }
+            
+            return {
+              id: road.getAttribute('id') || `road_${index}`,
+              length: parseFloat(road.getAttribute('length') || '100'),
+              junction: road.getAttribute('junction') || '-1',
+              planView: planView,
+              lanes: lanes
+            };
+          });
+          
           return {
             header: {
               revMajor: header?.getAttribute('revMajor') || '1',
               revMinor: header?.getAttribute('revMinor') || '0',
               name: header?.getAttribute('name') || 'Default Road'
             },
-            roads: roads.map((road, index) => ({
-              id: road.getAttribute('id') || `road_${index}`,
-              length: parseFloat(road.getAttribute('length') || '100'),
-              junction: road.getAttribute('junction') || '-1'
-            })),
+            roads: parsedRoads,
             junctions: junctions.map((junction, index) => ({
               id: junction.getAttribute('id') || `junction_${index}`,
               name: junction.getAttribute('name') || `Junction ${index}`
@@ -331,7 +377,102 @@ export class DataAdapter {
       }
     }
     
-    return null;
+    // 如果没有找到.xodr文件，创建一个默认的道路场景
+    console.log('No .xodr file found, creating default road scene');
+    return this.createDefaultRoadScene();
+  }
+  
+  /**
+   * Parse lane side (left, center, right)
+   */
+  static parseLaneSide(sideElement: Element | null): any {
+    if (!sideElement) return null;
+    
+    const lanes = sideElement.querySelectorAll('lane');
+    return {
+      lanes: Array.from(lanes).map(lane => ({
+        id: parseInt(lane.getAttribute('id') || '0'),
+        type: lane.getAttribute('type') || 'driving',
+        width: Array.from(lane.querySelectorAll('width')).map(width => ({
+          sOffset: parseFloat(width.getAttribute('sOffset') || '0'),
+          a: parseFloat(width.getAttribute('a') || '3.5'),
+          b: parseFloat(width.getAttribute('b') || '0'),
+          c: parseFloat(width.getAttribute('c') || '0'),
+          d: parseFloat(width.getAttribute('d') || '0')
+        }))
+      }))
+    };
+  }
+  
+  /**
+   * Create a default road scene for demonstration
+   */
+  static createDefaultRoadScene(): ParsedOpenDrive {
+    console.log('Creating default horizontal road scene');
+    return {
+      header: {
+        revMajor: '1',
+        revMinor: '0',
+        name: 'Default Demo Road'
+      },
+      roads: [
+        {
+          id: 'road_0',
+          length: 200,
+          junction: '-1',
+          planView: [
+            {
+              s: 0,
+              x: -100,
+              y: 0,
+              hdg: 0, // 水平方向，沿X轴
+              length: 200,
+              type: 'line'
+            }
+          ],
+          lanes: {
+            laneSection: [
+              {
+                s: 0,
+                left: {
+                  lanes: [
+                    {
+                      id: 1,
+                      type: 'driving',
+                      width: [{ sOffset: 0, a: 3.5, b: 0, c: 0, d: 0 }]
+                    }
+                  ]
+                },
+                center: {
+                  lanes: [
+                    {
+                      id: 0,
+                      type: 'center',
+                      width: [{ sOffset: 0, a: 0.2, b: 0, c: 0, d: 0 }]
+                    }
+                  ]
+                },
+                right: {
+                  lanes: [
+                    {
+                      id: -1,
+                      type: 'driving',
+                      width: [{ sOffset: 0, a: 3.5, b: 0, c: 0, d: 0 }]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      junctions: [],
+      coordinateSystem: 'right-hand-z-up',
+      boundingBox: {
+        min: new THREE.Vector3(-100, -10, -1),
+        max: new THREE.Vector3(100, 10, 1)
+      }
+    };
   }
 
   /**

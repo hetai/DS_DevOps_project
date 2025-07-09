@@ -17,6 +17,13 @@ import {
   EventElement,
   TimelineEvent
 } from '../types/VisualizationTypes';
+import { 
+  ScenarioEvent, 
+  ScenarioEventParameters, 
+  EventTrigger, 
+  ConditionGroup, 
+  TriggerCondition 
+} from '../types/ScenarioEventTypes';
 import { MathUtils } from '../utils/MathUtils';
 
 export class OpenScenarioParser {
@@ -793,6 +800,306 @@ export class OpenScenarioParser {
     };
   }
   
+  /**
+   * Generate enhanced scenario events from storyboard
+   */
+  public generateScenarioEvents(storyboard: any): ScenarioEvent[] {
+    const events: ScenarioEvent[] = [];
+    let eventIdCounter = 0;
+    
+    if (!storyboard) return events;
+    
+    // Add init actions at time 0
+    if (storyboard.init?.actions?.private) {
+      for (const privateAction of storyboard.init.actions.private) {
+        for (const action of privateAction.actions || []) {
+          const event = this.convertActionToScenarioEvent(
+            action,
+            privateAction.entityRef,
+            0,
+            `init_${eventIdCounter++}`,
+            'Init Action'
+          );
+          if (event) {
+            events.push(event);
+          }
+        }
+      }
+    }
+    
+    // Process stories and acts
+    for (const story of storyboard.story || []) {
+      for (const act of story.act || []) {
+        const actStartTime = this.estimateTimeFromTrigger(act.startTrigger, 0);
+        
+        for (const maneuverGroup of act.maneuverGroup || []) {
+          const entityRefs = maneuverGroup.actors?.entityRef?.map((ref: any) => ref.entityRef) || [];
+          
+          for (const maneuver of maneuverGroup.maneuver || []) {
+            for (const event of maneuver.event || []) {
+              const eventStartTime = this.estimateTimeFromTrigger(event.startTrigger, actStartTime);
+              
+              // Process each entity affected by this event
+              for (const entityRef of entityRefs) {
+                for (const action of event.action || []) {
+                  const scenarioEvent = this.convertActionToScenarioEvent(
+                    action,
+                    entityRef,
+                    eventStartTime,
+                    `${story.name}_${act.name}_${maneuver.name}_${event.name}_${eventIdCounter++}`,
+                    event.name,
+                    event.priority,
+                    event.maximumExecutionCount,
+                    event.startTrigger
+                  );
+                  if (scenarioEvent) {
+                    events.push(scenarioEvent);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Sort events by time
+    events.sort((a, b) => a.time - b.time);
+    
+    return events;
+  }
+
+  /**
+   * Convert OpenSCENARIO action to ScenarioEvent
+   */
+  private convertActionToScenarioEvent(
+    action: any,
+    entityRef: string,
+    eventTime: number,
+    eventId: string,
+    eventName: string,
+    priority: string = 'overwrite',
+    maximumExecutionCount: number = 1,
+    startTrigger?: any
+  ): ScenarioEvent | null {
+    if (!action || !entityRef) return null;
+    
+    const baseEvent: Partial<ScenarioEvent> = {
+      id: eventId,
+      time: eventTime,
+      vehicleId: entityRef,
+      name: eventName,
+      priority: priority as ScenarioEvent['priority'],
+      maximumExecutionCount,
+      status: 'pending',
+      originalAction: action
+    };
+    
+    // Convert trigger if present
+    if (startTrigger) {
+      baseEvent.startTrigger = this.convertTriggerToEventTrigger(startTrigger);
+    }
+    
+    // Convert different action types
+    switch (action.type) {
+      case 'teleport':
+        return {
+          ...baseEvent,
+          type: 'teleport',
+          parameters: this.convertTeleportParameters(action),
+          duration: 0 // Teleport is instantaneous
+        } as ScenarioEvent;
+        
+      case 'speed':
+        return {
+          ...baseEvent,
+          type: 'speed_change',
+          parameters: this.convertSpeedParameters(action),
+          duration: this.estimateActionDuration(action)
+        } as ScenarioEvent;
+        
+      case 'laneChange':
+        return {
+          ...baseEvent,
+          type: 'lane_change',
+          parameters: this.convertLaneChangeParameters(action),
+          duration: this.estimateActionDuration(action)
+        } as ScenarioEvent;
+        
+      default:
+        // Handle unknown action types as custom events
+        return {
+          ...baseEvent,
+          type: 'custom',
+          parameters: {
+            customData: action
+          },
+          duration: this.estimateActionDuration(action)
+        } as ScenarioEvent;
+    }
+  }
+
+  /**
+   * Convert teleport action parameters
+   */
+  private convertTeleportParameters(action: any): ScenarioEventParameters {
+    const parameters: ScenarioEventParameters = {};
+    
+    if (action.position) {
+      parameters.targetPosition = {
+        type: action.position.type,
+        x: action.position.x,
+        y: action.position.y,
+        z: action.position.z || 0,
+        h: action.position.h || 0,
+        p: action.position.p || 0,
+        r: action.position.r || 0
+      };
+      
+      if (action.position.type === 'lane') {
+        parameters.targetPosition.roadId = action.position.roadId;
+        parameters.targetPosition.laneId = action.position.laneId;
+        parameters.targetPosition.s = action.position.s;
+        parameters.targetPosition.offset = action.position.offset;
+      } else if (action.position.type === 'road') {
+        parameters.targetPosition.roadId = action.position.roadId;
+        parameters.targetPosition.s = action.position.s;
+        parameters.targetPosition.t = action.position.t;
+      }
+    }
+    
+    return parameters;
+  }
+
+  /**
+   * Convert speed action parameters
+   */
+  private convertSpeedParameters(action: any): ScenarioEventParameters {
+    const parameters: ScenarioEventParameters = {};
+    
+    if (action.speedTarget) {
+      parameters.targetSpeed = action.speedTarget.value;
+      parameters.speedChangeType = action.speedTarget.type;
+    }
+    
+    if (action.speedDynamics) {
+      parameters.speedDynamics = {
+        dynamicsShape: action.speedDynamics.dynamicsShape,
+        value: action.speedDynamics.value,
+        dynamicsDimension: action.speedDynamics.dynamicsDimension
+      };
+    }
+    
+    return parameters;
+  }
+
+  /**
+   * Convert lane change action parameters
+   */
+  private convertLaneChangeParameters(action: any): ScenarioEventParameters {
+    const parameters: ScenarioEventParameters = {};
+    
+    if (action.laneChangeTarget) {
+      parameters.targetLane = action.laneChangeTarget.value;
+      parameters.laneChangeType = action.laneChangeTarget.type;
+    }
+    
+    if (action.laneChangeDynamics) {
+      parameters.laneChangeDynamics = {
+        dynamicsShape: action.laneChangeDynamics.dynamicsShape,
+        value: action.laneChangeDynamics.value,
+        dynamicsDimension: action.laneChangeDynamics.dynamicsDimension
+      };
+    }
+    
+    return parameters;
+  }
+
+  /**
+   * Convert OpenSCENARIO trigger to EventTrigger
+   */
+  private convertTriggerToEventTrigger(trigger: any): EventTrigger {
+    const eventTrigger: EventTrigger = {
+      conditionGroups: []
+    };
+    
+    if (trigger.conditionGroup) {
+      for (const conditionGroup of trigger.conditionGroup) {
+        const group: ConditionGroup = {
+          conditions: []
+        };
+        
+        if (conditionGroup.condition) {
+          for (const condition of conditionGroup.condition) {
+            const triggerCondition = this.convertConditionToTriggerCondition(condition);
+            if (triggerCondition) {
+              group.conditions.push(triggerCondition);
+            }
+          }
+        }
+        
+        if (group.conditions.length > 0) {
+          eventTrigger.conditionGroups.push(group);
+        }
+      }
+    }
+    
+    return eventTrigger;
+  }
+
+  /**
+   * Convert OpenSCENARIO condition to TriggerCondition
+   */
+  private convertConditionToTriggerCondition(condition: any): TriggerCondition | null {
+    if (!condition.name) return null;
+    
+    const triggerCondition: TriggerCondition = {
+      name: condition.name,
+      delay: condition.delay || 0,
+      conditionEdge: condition.conditionEdge || 'rising',
+      type: condition.type || 'byValue'
+    };
+    
+    // Handle by-value conditions
+    if (condition.type === 'byValue' && condition.conditionType === 'simulationTime') {
+      triggerCondition.simulationTime = {
+        value: condition.value,
+        rule: condition.rule
+      };
+    }
+    
+    // Handle by-entity conditions
+    if (condition.type === 'byEntity') {
+      if (condition.triggeringEntities) {
+        triggerCondition.triggeringEntities = {
+          triggeringEntitiesRule: condition.triggeringEntities.triggeringEntitiesRule,
+          entityRefs: condition.triggeringEntities.entityRef || []
+        };
+      }
+      
+      if (condition.conditionType === 'speed') {
+        triggerCondition.speedCondition = {
+          value: condition.value,
+          rule: condition.rule
+        };
+      } else if (condition.conditionType === 'distance') {
+        triggerCondition.distanceCondition = {
+          value: condition.value,
+          rule: condition.rule,
+          freespace: condition.freespace || false,
+          position: condition.position ? {
+            type: condition.position.type,
+            x: condition.position.x,
+            y: condition.position.y,
+            z: condition.position.z
+          } : undefined
+        };
+      }
+    }
+    
+    return triggerCondition;
+  }
+
   /**
    * Generate timeline events from storyboard
    */

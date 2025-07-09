@@ -6,8 +6,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ParsedOpenDrive, RoadElement } from '../types/VisualizationTypes';
-import { OpenDriveParser } from '../parsers/OpenDriveParser';
+import { ParsedOpenDrive } from '../types/VisualizationTypes';
 import { GeometryUtils } from '../utils/GeometryUtils';
 
 interface RoadNetworkRendererProps {
@@ -42,7 +41,7 @@ interface JunctionProps {
  */
 function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
   const roadGroupRef = useRef<THREE.Group>(null);
-  
+
   // Generate road geometry based on quality level
   const roadGeometry = useMemo(() => {
     if (!road.planView || road.planView.length === 0) {
@@ -53,11 +52,13 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     return GeometryUtils.createRoadGeometry(road.planView, 7.0, resolution);
   }, [road.planView, qualityLevel]);
   
-  // Road material
+  // Road material without texture (using basic color)
   const roadMaterial = useMemo(() => {
-    return new THREE.MeshLambertMaterial({
-      color: 0x404040,
+    return new THREE.MeshStandardMaterial({
+      color: 0x404040, // Dark gray asphalt color
       side: THREE.DoubleSide,
+      roughness: 0.8,
+      metalness: 0.2,
     });
   }, []);
   
@@ -67,7 +68,6 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     
     if (!road.lanes?.laneSection) return lanes;
     
-    // Generate centerline points
     const centerline = road.planView ? 
       GeometryUtils.generateGeometryPoints(road.planView[0], 50) : 
       [new THREE.Vector3(0, 0, 0), new THREE.Vector3(road.length || 10, 0, 0)];
@@ -75,10 +75,9 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     for (const laneSection of road.lanes.laneSection) {
       let currentOffset = 0;
       
-      // Process left lanes
       if (laneSection.left?.lanes) {
         for (const lane of laneSection.left.lanes) {
-          if (lane.type === 'driving' || lane.type === 'parking') {
+          if (lane.type === 'driving') {
             const laneWidth = lane.width?.[0]?.a || 3.5;
             currentOffset += laneWidth;
             
@@ -89,28 +88,26 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
               laneSection.s
             );
             
-            const laneMaterial = new THREE.MeshLambertMaterial({
-              color: lane.type === 'driving' ? 0x505050 : 0x353535,
-              transparent: true,
-              opacity: 0.9
+            const laneMaterial = new THREE.MeshStandardMaterial({
+              color: 0x505050,
+              roughness: 0.9,
+              metalness: 0.1,
             });
             
             lanes.push({
               geometry: laneGeometry,
               material: laneMaterial,
-              position: new THREE.Vector3(0, 0, 0.01) // Slightly above road surface
+              position: new THREE.Vector3(0, 0, 0.01)
             });
           }
         }
       }
       
-      // Reset offset for right lanes
       currentOffset = 0;
       
-      // Process right lanes
       if (laneSection.right?.lanes) {
         for (const lane of laneSection.right.lanes) {
-          if (lane.type === 'driving' || lane.type === 'parking') {
+          if (lane.type === 'driving') {
             const laneWidth = lane.width?.[0]?.a || 3.5;
             currentOffset -= laneWidth;
             
@@ -121,10 +118,10 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
               laneSection.s
             );
             
-            const laneMaterial = new THREE.MeshLambertMaterial({
-              color: lane.type === 'driving' ? 0x505050 : 0x353535,
-              transparent: true,
-              opacity: 0.9
+            const laneMaterial = new THREE.MeshStandardMaterial({
+              color: 0x505050,
+              roughness: 0.9,
+              metalness: 0.1,
             });
             
             lanes.push({
@@ -139,14 +136,13 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     
     return lanes;
   }, [road.lanes, road.planView, road.length]);
-  
+
   // Lane markings
   const laneMarkings = useMemo(() => {
     if (!showLaneMarkings || !road.lanes?.laneSection) return [];
     
     const markings: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = [];
     
-    // Generate centerline for markings
     const centerline = road.planView ? 
       GeometryUtils.generateGeometryPoints(road.planView[0], 50) : 
       [new THREE.Vector3(0, 0, 0), new THREE.Vector3(road.length || 10, 0, 0)];
@@ -154,13 +150,15 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     for (const laneSection of road.lanes.laneSection) {
       let currentOffset = 0;
       
-      // Process lane markings
       if (laneSection.left?.lanes) {
         for (const lane of laneSection.left.lanes) {
           if (lane.roadMark && lane.roadMark.length > 0) {
             const roadMark = lane.roadMark[0];
-            const markingGeometry = GeometryUtils.createTrajectoryGeometry(
-              centerline.map(point => point.clone().add(new THREE.Vector3(0, currentOffset, 0.02))),
+            const markingPoints = centerline.map(point => point.clone().add(new THREE.Vector3(0, currentOffset, 0.02)));
+            const markingGeometry = GeometryUtils.createDashedLineGeometry(
+              markingPoints,
+              1.0, // dash size
+              0.5, // gap size
               roadMark.width || 0.15
             );
             
@@ -199,7 +197,7 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
   return (
     <group ref={roadGroupRef} name={`road-${road.id}`}>
       {/* Main road surface */}
-      <mesh geometry={roadGeometry} material={roadMaterial} />
+      <mesh geometry={roadGeometry} material={roadMaterial} receiveShadow />
       
       {/* Individual lanes */}
       {laneGeometries.map((lane, index) => (
@@ -208,6 +206,7 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
           geometry={lane.geometry}
           material={lane.material}
           position={lane.position}
+          receiveShadow
         />
       ))}
       
@@ -222,6 +221,7 @@ function RoadMesh({ road, qualityLevel, showLaneMarkings }: RoadMeshProps) {
     </group>
   );
 }
+
 
 /**
  * Lane marking component
@@ -307,43 +307,7 @@ function Junction({ junction, visible }: JunctionProps) {
 }
 
 /**
- * Road network debug helpers
- */
-function RoadNetworkDebug({ roads }: { roads: any[] }) {
-  const debugLines = useMemo(() => {
-    const lines: { points: THREE.Vector3[]; color: number }[] = [];
-    
-    for (const road of roads) {
-      if (road.planView && road.planView.length > 0) {
-        const points = GeometryUtils.generateGeometryPoints(road.planView[0], 20);
-        lines.push({ points, color: 0xff0000 }); // Red centerline
-      }
-    }
-    
-    return lines;
-  }, [roads]);
-  
-  return (
-    <group name="road-debug">
-      {debugLines.map((line, index) => (
-        <line key={index}>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              count={line.points.length}
-              array={new Float32Array(line.points.flatMap(p => [p.x, p.y, p.z]))}
-              itemSize={3}
-            />
-          </bufferGeometry>
-          <lineBasicMaterial color={line.color} />
-        </line>
-      ))}
-    </group>
-  );
-}
-
-/**
- * Main road network renderer component
+ * Main Road Network Renderer component
  */
 export default function RoadNetworkRenderer({
   openDriveData,
@@ -354,93 +318,45 @@ export default function RoadNetworkRenderer({
   onError
 }: RoadNetworkRendererProps) {
   const roadNetworkRef = useRef<THREE.Group>(null);
-  
-  // Parse and validate OpenDRIVE data
-  const parsedData = useMemo(() => {
-    if (!openDriveData) return null;
-    
-    try {
-      // Validate the data
-      const parser = new OpenDriveParser();
-      const validation = parser.validateParsedData(openDriveData);
-      
-      if (!validation.isValid) {
-        console.warn('OpenDRIVE validation warnings:', validation.errors);
-        onError?.(`OpenDRIVE validation issues: ${validation.errors.join(', ')}`);
-      }
-      
-      return openDriveData;
-    } catch (error: any) {
-      console.error('Error processing OpenDRIVE data:', error);
-      onError?.(`Failed to process OpenDRIVE data: ${error.message}`);
-      return null;
+
+  // Error handling for missing data
+  useEffect(() => {
+    if (!openDriveData && onError) {
+      onError('No OpenDRIVE data provided');
     }
   }, [openDriveData, onError]);
-  
-  // Calculate road network bounds for LOD
-  const networkBounds = useMemo(() => {
-    if (!parsedData?.boundingBox) {
-      return { size: 100, center: new THREE.Vector3(0, 0, 0) };
-    }
-    
-    const { min, max } = parsedData.boundingBox;
-    const size = min.distanceTo(max);
-    const center = min.clone().add(max).multiplyScalar(0.5);
-    
-    return { size, center };
-  }, [parsedData]);
-  
-  // Level of Detail management
-  const [lodLevel, setLodLevel] = React.useState<'high' | 'medium' | 'low'>('medium');
-  
-  useFrame(({ camera }) => {
-    if (!roadNetworkRef.current) return;
-    
-    const distance = camera.position.distanceTo(networkBounds.center);
-    const newLodLevel = distance > networkBounds.size * 2 ? 'low' :
-                      distance > networkBounds.size ? 'medium' : 'high';
-    
-    if (newLodLevel !== lodLevel) {
-      setLodLevel(newLodLevel);
-    }
-  });
-  
+
   // Update visibility
   useFrame(() => {
     if (roadNetworkRef.current) {
       roadNetworkRef.current.visible = visible;
     }
   });
-  
-  if (!parsedData) {
+
+  if (!openDriveData) {
     return null;
   }
-  
+
   return (
     <group ref={roadNetworkRef} name="road-network">
-      {/* Roads */}
-      {parsedData.roads?.map((road: any) => (
+      {/* Render roads */}
+      {openDriveData.roads?.map((road) => (
         <RoadMesh
           key={road.id}
           road={road}
-          qualityLevel={Math.min(qualityLevel, lodLevel) as 'low' | 'medium' | 'high'}
-          showLaneMarkings={showLaneMarkings && lodLevel !== 'low'}
+          qualityLevel={qualityLevel}
+          showLaneMarkings={showLaneMarkings}
         />
       ))}
       
-      {/* Junctions */}
-      {showJunctions && parsedData.junctions?.map((junction: any) => (
+      {/* Render junctions */}
+      {showJunctions && openDriveData.junctions?.map((junction) => (
         <Junction
           key={junction.id}
           junction={junction}
           visible={visible}
         />
       ))}
-      
-      {/* Debug helpers (only in development) */}
-      {process.env.NODE_ENV === 'development' && parsedData.roads && (
-        <RoadNetworkDebug roads={parsedData.roads} />
-      )}
     </group>
   );
 }

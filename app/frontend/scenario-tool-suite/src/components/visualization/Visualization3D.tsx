@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Zap
 } from 'lucide-react';
+import CoordinateAxes from './components/CoordinateAxes';
 import BottomControlBar from './BottomControlBar';
 // Import our custom visualization components
 import { SceneManager } from './core/SceneManager';
@@ -35,6 +36,7 @@ import CameraController from './controls/CameraController';
 // TimelineController functionality is now integrated into BottomControlBar
 // import TimelineController from './controls/TimelineController';
 import { DataAdapter } from './utils/DataAdapter';
+import { LightingUtils, LightingPresets } from './utils/LightingUtils';
 
 // Import types
 import { 
@@ -46,6 +48,14 @@ import {
   ValidationIssue
 } from './types/VisualizationTypes';
 
+// Import timeline synchronization hook
+import { useTimelineSync } from './hooks/useTimelineSync';
+
+// Import event processing system
+import { EventProcessor } from './utils/EventProcessor';
+import { VehicleStateManager } from './utils/VehicleStateManager';
+import { ScenarioEvent } from './types/ScenarioEventTypes';
+
 interface Visualization3DState {
   isLoading: boolean;
   error: string | null;
@@ -54,12 +64,6 @@ interface Visualization3DState {
   // Parsed data
   openDriveData: ParsedOpenDrive | null;
   openScenarioData: ParsedOpenScenario | null;
-  
-  // Timeline state
-  currentTime: number;
-  isPlaying: boolean;
-  playbackSpeed: number;
-  timelineDuration: number;
   
   // Rendering options
   showRoadNetwork: boolean;
@@ -71,9 +75,14 @@ interface Visualization3DState {
   // Camera state
   autoRotate: boolean;
   
-  // Performance
-  frameRate: number;
-  renderTime: number;
+  // Performance metrics
+  frameRate?: number;
+  renderTime?: number;
+  
+  // Event processing state
+  scenarioEvents: ScenarioEvent[];
+  eventProcessor: EventProcessor | null;
+  vehicleStateManager: VehicleStateManager | null;
 }
 
 /**
@@ -225,7 +234,8 @@ function SceneContent({
   validationResults,
   onStateChange,
   scenarioFiles,
-  performanceMode
+  performanceMode,
+  currentTime
 }: {
   state: Visualization3DState;
   openDriveData: ParsedOpenDrive | null;
@@ -234,6 +244,7 @@ function SceneContent({
   onStateChange: (updates: Partial<Visualization3DState>) => void;
   scenarioFiles: Record<string, string>;
   performanceMode?: boolean;
+  currentTime: number;
 }) {
   const frameCount = useRef(0);
   const lastTime = useRef(performance.now());
@@ -260,34 +271,53 @@ function SceneContent({
     }
   });
   
-  // Generate vehicles from scenario data
+  // Generate vehicles from scenario data with event-driven state
   const vehicles = useMemo((): VehicleElement[] => {
     if (Object.keys(scenarioFiles).length === 0) return [];
     
     try {
       // Use DataAdapter to get vehicles
       const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults);
+      
+      // If we have event processor and vehicle state manager, use enhanced vehicles
+      if (state.eventProcessor && state.vehicleStateManager) {
+        // Process events at current time
+        const eventResult = state.eventProcessor.processEventsAtTime(currentTime, adaptedData.vehicles);
+        
+        // Apply state updates
+        state.vehicleStateManager.applyStateUpdates(eventResult.vehicleStateUpdates, currentTime);
+        
+        // Update vehicle states
+        state.vehicleStateManager.updateVehicleStates(currentTime);
+        
+        // Return enhanced vehicles
+        return state.vehicleStateManager.convertAllToVehicleElements();
+      }
+      
       return adaptedData.vehicles;
     } catch (error) {
       console.warn('Failed to generate vehicles:', error);
       return [];
     }
-  }, [scenarioFiles, validationResults]);
+  }, [scenarioFiles, validationResults, state.eventProcessor, state.vehicleStateManager, currentTime]);
   
+  // Enhanced lighting system
+  const lighting = useMemo(() => {
+    return LightingUtils.createSceneLighting();
+  }, []);
+
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.4} />
-      <directionalLight 
-        position={[50, 50, 50]} 
-        intensity={1}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <hemisphereLight 
-        args={[0x87CEEB, 0x362d1d, 0.3]}
-      />
+      {/* Enhanced Lighting System */}
+      <primitive object={lighting.ambientLight} />
+      <primitive object={lighting.directionalLight} />
+      <primitive object={lighting.hemisphereLight} />
+      {lighting.pointLights.map((light, index) => (
+        <primitive key={`point-light-${index}`} object={light} />
+      ))}
+      
+      {/* Fog for atmospheric effect */}
+      <fog attach="fog" args={[0xcccccc, 50, 500]} />
       
       {/* Camera controls */}
       <CameraController
@@ -322,10 +352,10 @@ function SceneContent({
         <VehicleRenderer
           vehicles={vehicles}
           timeline={openScenarioData?.timeline || []}
-          currentTime={state.currentTime}
+          currentTime={currentTime}
           showTrajectories={state.showTrajectories}
           showVehicleLabels={state.showVehicleLabels}
-          playbackSpeed={state.playbackSpeed}
+          playbackSpeed={1.0}
           visible={true}
           performanceMode={performanceMode}
         />
@@ -342,7 +372,7 @@ function SceneContent({
         />
       )}
       
-      {/* Ground plane */}
+      {/* Ground plane - 水平地面 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -0.1]} receiveShadow>
         <planeGeometry args={[1000, 1000]} />
         <meshLambertMaterial color={0x90EE90} transparent opacity={0.3} />
@@ -352,7 +382,7 @@ function SceneContent({
       {process.env.NODE_ENV === 'development' && (
         <>
           <gridHelper args={[100, 20]} />
-          <axesHelper args={[10]} />
+          <CoordinateAxes size={10} />
         </>
       )}
     </>
@@ -380,11 +410,6 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
     openDriveData: null,
     openScenarioData: null,
     
-    currentTime: 0,
-    isPlaying: false,
-    playbackSpeed: 1.0,
-    timelineDuration: 30,
-    
     showRoadNetwork: true,
     showVehicles: true,
     showValidationHighlights: true,
@@ -393,9 +418,30 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
     
     autoRotate: false,
     
-    frameRate: 60,
-    renderTime: 16
+    // Initialize event processing state
+    scenarioEvents: [],
+    eventProcessor: null,
+    vehicleStateManager: null,
   });
+
+  // Calculate timeline duration based on scenario data
+  const timelineDuration = useMemo(() => {
+    return state.openScenarioData?.duration || Math.max(30, (state.openScenarioData?.timeline?.length || 0) * 2);
+  }, [state.openScenarioData]);
+
+  // Initialize timeline synchronization
+  const timelineSync = useTimelineSync(
+    timelineDuration,
+    (state.openScenarioData?.timeline || []).map(event => ({
+      time: event.timestamp || 0,
+      type: event.type || 'unknown',
+      data: event
+    })),
+    (event) => {
+      console.log('Timeline event triggered:', event);
+      // Handle timeline events here
+    }
+  );
   
   // Additional state for info panel
   const [showInfoPanel, setShowInfoPanel] = useState(false);
@@ -461,13 +507,47 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
         console.log('  - OpenDRIVE:', openDriveData ? 'Available' : 'None');
         console.log('  - OpenSCENARIO:', openScenarioData ? 'Available' : 'None');
         
+        // Initialize event processing system
+        let scenarioEvents: ScenarioEvent[] = [];
+        let eventProcessor: EventProcessor | null = null;
+        let vehicleStateManager: VehicleStateManager | null = null;
+        
+        if (openScenarioData) {
+          try {
+            console.log('🎯 Initializing event processing system...');
+            
+            // Generate scenario events from parsed data
+            const parser = new OpenScenarioParser();
+            scenarioEvents = parser.generateScenarioEvents(openScenarioData.storyboard);
+            
+            console.log(`📅 Generated ${scenarioEvents.length} scenario events`);
+            
+            // Initialize event processor
+            eventProcessor = new EventProcessor(scenarioEvents);
+            
+            // Initialize vehicle state manager
+            vehicleStateManager = new VehicleStateManager();
+            
+            // Get initial vehicles for state manager
+            const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults);
+            vehicleStateManager.initializeVehicles(adaptedData.vehicles);
+            
+            console.log('✅ Event processing system initialized successfully');
+          } catch (eventError) {
+            console.warn('⚠️ Event processing system initialization failed:', eventError);
+            // Continue without event processing
+          }
+        }
+        
         // Update state with parsed data
         updateState({
           isLoading: false,
           isInitialized: true,
           openDriveData,
           openScenarioData,
-          timelineDuration: openScenarioData?.duration || Math.max(30, (openScenarioData?.timeline?.length || 0) * 2),
+          scenarioEvents,
+          eventProcessor,
+          vehicleStateManager,
           error: null // Always allow initialization, even with no data
         });
         
@@ -483,6 +563,9 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
           isInitialized: true,
           openDriveData: null,
           openScenarioData: null,
+          scenarioEvents: [],
+          eventProcessor: null,
+          vehicleStateManager: null,
           error: null // Don't show error, just log it
         });
         
@@ -502,57 +585,34 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
           isInitialized: true,
           openDriveData: null,
           openScenarioData: null,
+          scenarioEvents: [],
+          eventProcessor: null,
+          vehicleStateManager: null,
           error: null
         });
       }
     }, 0);
   }, [scenarioFiles, validationResults, onError]);
   
-  // Auto-play logic
-  useEffect(() => {
-    let animationFrameId: number;
-    let lastTime = performance.now();
-    
-    const animate = (currentTimeMs: number) => {
-      if (state.isPlaying && state.currentTime < state.timelineDuration) {
-        const deltaTime = (currentTimeMs - lastTime) / 1000; // Convert to seconds
-        const timeIncrement = deltaTime * state.playbackSpeed;
-        
-        updateState({ 
-          currentTime: Math.min(state.currentTime + timeIncrement, state.timelineDuration)
-        });
-        
-        lastTime = currentTimeMs;
-        animationFrameId = requestAnimationFrame(animate);
-      } else if (state.isPlaying && state.currentTime >= state.timelineDuration) {
-        // Auto-stop when reaching the end
-        updateState({ isPlaying: false });
-      }
-    };
-    
-    if (state.isPlaying) {
-      lastTime = performance.now();
-      animationFrameId = requestAnimationFrame(animate);
-    }
-    
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [state.isPlaying, state.currentTime, state.timelineDuration, state.playbackSpeed]);
-  
-  // Handle timeline updates
+  // Timeline handlers using the new sync hook
   const handleTimeChange = (time: number) => {
-    updateState({ currentTime: time });
+    timelineSync.controls.seekTo(time);
   };
   
   const handlePlayPause = (playing: boolean) => {
-    updateState({ isPlaying: playing });
+    if (playing) {
+      timelineSync.controls.play();
+    } else {
+      timelineSync.controls.pause();
+    }
   };
   
   const handleSpeedChange = (speed: number) => {
-    updateState({ playbackSpeed: speed });
+    timelineSync.controls.setPlaybackSpeed(speed);
+  };
+  
+  const handleReset = () => {
+    timelineSync.controls.reset();
   };
   
   // Show error state
@@ -623,6 +683,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
                 onStateChange={updateState}
                 scenarioFiles={scenarioFiles}
                 performanceMode={performanceMode}
+                currentTime={timelineSync.state.currentTime}
               />
             </Canvas>
           </Suspense>
@@ -633,12 +694,12 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
        {state.isInitialized && (
          <BottomControlBar
            // Playback controls
-           isPlaying={state.isPlaying}
-           currentTime={state.currentTime}
-           duration={state.timelineDuration}
-           playbackSpeed={state.playbackSpeed}
+           isPlaying={timelineSync.state.isPlaying}
+           currentTime={timelineSync.state.currentTime}
+           duration={timelineSync.state.duration}
+           playbackSpeed={timelineSync.state.playbackSpeed}
            onPlayPause={handlePlayPause}
-           onReset={() => updateState({ currentTime: 0, isPlaying: false })}
+           onReset={handleReset}
            onTimeChange={handleTimeChange}
            onSpeedChange={handleSpeedChange}
            
@@ -651,13 +712,14 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
            onToggleRotation={() => updateState({ autoRotate: !state.autoRotate })}
            
            // Performance monitoring
-           frameRate={state.frameRate}
-           renderTime={state.renderTime}
+           frameRate={timelineSync.state.frameRate}
+           renderTime={timelineSync.state.renderTime}
            performanceMode={performanceMode}
            onTogglePerformanceMode={() => setPerformanceMode(!performanceMode)}
            
            // Timeline data
            timeline={state.openScenarioData?.timeline as any}
+           scenarioEvents={state.eventProcessor?.getEventsForVisualization(timelineSync.state.duration)}
            
            // Other controls
            showInfoPanel={showInfoPanel}

@@ -75,6 +75,7 @@ export interface VehicleElement {
   trajectory?: THREE.Vector3[];
   speed: number;
   timestamp: number;
+  isEgo?: boolean; // 标识是否为自车
 }
 
 export interface JunctionElement {

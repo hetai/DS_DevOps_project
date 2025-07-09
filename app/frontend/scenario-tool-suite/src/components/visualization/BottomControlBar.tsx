@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Play, 
   Pause, 
@@ -9,8 +9,10 @@ import {
   RotateCw, 
   Zap, 
   Info,
-  Gauge
+  Gauge,
+  Calendar
 } from 'lucide-react';
+import { EventVisualizationData } from './types/ScenarioEventTypes';
 
 interface BottomControlBarProps {
   // Playback controls
@@ -39,6 +41,7 @@ interface BottomControlBarProps {
   
   // Timeline data
   timeline?: any[];
+  scenarioEvents?: EventVisualizationData[];
   
   // Other
   showInfoPanel: boolean;
@@ -65,9 +68,12 @@ const BottomControlBar: React.FC<BottomControlBarProps> = ({
   performanceMode,
   onTogglePerformanceMode,
   timeline,
+  scenarioEvents,
   showInfoPanel,
   onToggleInfoPanel
 }) => {
+  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [hoveredEvent, setHoveredEvent] = useState<EventVisualizationData | null>(null);
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -100,8 +106,28 @@ const BottomControlBar: React.FC<BottomControlBarProps> = ({
               style={{ width: `${(currentTime / duration) * 100}%` }}
             />
             
-            {/* Timeline events */}
-            {timeline && timeline.map((event, index) => {
+            {/* Enhanced scenario events */}
+            {scenarioEvents && scenarioEvents.map((eventData, index) => {
+              const position = eventData.timelinePosition * 100;
+              return (
+                <div
+                  key={`scenario-event-${index}`}
+                  className="absolute top-0 w-2 h-full rounded-full cursor-pointer transform -translate-x-1/2 z-10"
+                  style={{ 
+                    left: `${position}%`,
+                    backgroundColor: eventData.color,
+                    opacity: eventData.isActive ? 1 : 0.8,
+                    boxShadow: eventData.isActive ? `0 0 4px ${eventData.color}` : 'none'
+                  }}
+                  title={`${eventData.displayName}: ${eventData.description}`}
+                  onMouseEnter={() => setHoveredEvent(eventData)}
+                  onMouseLeave={() => setHoveredEvent(null)}
+                />
+              );
+            })}
+            
+            {/* Legacy timeline events (fallback) */}
+            {timeline && !scenarioEvents && timeline.map((event, index) => {
               const position = (event.time / duration) * 100;
               return (
                 <div
@@ -118,6 +144,34 @@ const BottomControlBar: React.FC<BottomControlBarProps> = ({
             {formatTime(duration)}
           </span>
         </div>
+        
+        {/* Event details hover display */}
+        {hoveredEvent && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-800 text-white p-3 rounded-lg shadow-lg border border-gray-600 z-40 min-w-64">
+            <div className="flex items-center space-x-2 mb-2">
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: hoveredEvent.color }}
+              />
+              <span className="font-semibold">{hoveredEvent.displayName}</span>
+              <span className="text-xs text-gray-400">
+                {hoveredEvent.event.vehicleId}
+              </span>
+            </div>
+            <p className="text-sm mb-2">{hoveredEvent.description}</p>
+            <div className="flex justify-between items-center text-xs text-gray-400">
+              <span>Time: {formatTime(hoveredEvent.event.time)}</span>
+              <span>
+                {hoveredEvent.isActive && (
+                  <span className="px-2 py-1 bg-green-600 text-white rounded">Active</span>
+                )}
+                {hoveredEvent.isCompleted && (
+                  <span className="px-2 py-1 bg-blue-600 text-white rounded">Completed</span>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Controls */}
         <div className="flex items-center justify-between">
@@ -200,6 +254,18 @@ const BottomControlBar: React.FC<BottomControlBarProps> = ({
               title="Toggle Auto Rotation"
             >
               <RotateCw className="w-4 h-4 text-white" />
+            </button>
+            
+            <button
+              onClick={() => setShowEventDetails(!showEventDetails)}
+              className={`flex items-center justify-center w-8 h-8 rounded transition-colors ${
+                showEventDetails 
+                  ? 'bg-cyan-600 hover:bg-cyan-700' 
+                  : 'bg-gray-600 hover:bg-gray-700'
+              }`}
+              title="Toggle Event Details"
+            >
+              <Calendar className="w-4 h-4 text-white" />
             </button>
           </div>
 

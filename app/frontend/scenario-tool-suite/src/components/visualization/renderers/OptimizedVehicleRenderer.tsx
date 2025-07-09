@@ -3,13 +3,11 @@
  * Uses performance optimizations for large numbers of vehicles
  */
 
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Detailed, Instances, Instance } from '@react-three/drei';
+import { Instance } from '@react-three/drei';
 import * as THREE from 'three';
 import { VehicleElement, TimelineEvent } from '../types/VisualizationTypes';
-import { GeometryUtils } from '../utils/GeometryUtils';
-import { MathUtils } from '../utils/MathUtils';
 
 interface OptimizedVehicleRendererProps {
   vehicles: VehicleElement[];
@@ -43,7 +41,7 @@ function HighDetailVehicle({ vehicle, currentTime, onClick }: {
   }, [vehicle, currentTime]);
 
   const dimensions = getVehicleDimensions(vehicle.type);
-  const color = getVehicleColor(vehicle.type);
+  const color = getVehicleColor(vehicle.type, vehicle.isEgo);
   
   return (
     <group position={currentTransform.position} rotation={currentTransform.rotation}>
@@ -98,7 +96,7 @@ function MediumDetailVehicle({ vehicle, currentTime, onClick }: {
   }, [vehicle, currentTime]);
 
   const dimensions = getVehicleDimensions(vehicle.type);
-  const color = getVehicleColor(vehicle.type);
+  const color = getVehicleColor(vehicle.type, vehicle.isEgo);
   
   return (
     <group position={currentTransform.position} rotation={currentTransform.rotation}>
@@ -146,9 +144,7 @@ function VehicleWithLOD({ vehicle, currentTime, showTrajectory, lodLevel, onClic
     const geometry = new THREE.BufferGeometry().setFromPoints(vehicle.trajectory);
     
     return (
-      <line geometry={geometry}>
-        <lineBasicMaterial color={0x00ff00} transparent opacity={0.6} />
-      </line>
+      <primitive object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.6 }))} />
     );
   }, [vehicle.trajectory, showTrajectory, lodLevel]);
 
@@ -271,7 +267,7 @@ function InstancedVehicles({
       castShadow
     >
       <boxGeometry args={[dimensions.length, dimensions.width, dimensions.height]} />
-      <meshLambertMaterial color={getVehicleColor('car')} />
+      <meshLambertMaterial color={getVehicleColor('car', false)} />
     </instancedMesh>
   );
 }
@@ -405,17 +401,15 @@ export default function OptimizedVehicleRenderer({
         ))
       )}
       
-      {/* Debug info */}
+      {/* Debug info - removed textGeometry due to font loading issues */}
       {process.env.NODE_ENV === 'development' && (
-        <mesh position={[0, 0, 10]}>
-          <textGeometry 
-            args={[
-              `Vehicles: ${visibleVehicles.length}\nLOD: ${lodLevel}\nInstancing: ${useInstancing}`,
-              { font: undefined, size: 1, height: 0.1 }
-            ]} 
-          />
-          <meshBasicMaterial color={0xffffff} />
-        </mesh>
+        <group position={[0, 0, 10]}>
+          {/* Debug info will be shown in console instead */}
+          {(() => {
+            console.log(`Vehicles: ${visibleVehicles.length}, LOD: ${lodLevel}, Instancing: ${useInstancing}`);
+            return null;
+          })()}
+        </group>
       )}
     </group>
   );
@@ -440,45 +434,53 @@ function getVehicleDimensions(vehicleType: string): { length: number; width: num
   }
 }
 
-function getVehicleColor(vehicleType: string): number {
+function getVehicleColor(vehicleType: string, isEgo: boolean = false): number {
+  // 自车使用特殊颜色（绿色）
+  if (isEgo) {
+    return 0x00ff00; // 亮绿色表示自车
+  }
+  
+  // 其他车辆根据类型使用不同颜色
   switch (vehicleType.toLowerCase()) {
     case 'car':
     case 'sedan':
-      return 0x4080ff;
+      return 0x4080ff; // 蓝色
     case 'truck':
     case 'lorry':
-      return 0xff8040;
+      return 0xff8040; // 橙色
     case 'bus':
-      return 0xffff40;
+      return 0xffff40; // 黄色
     case 'motorcycle':
     case 'motorbike':
-      return 0xff4040;
+      return 0xff4040; // 红色
     default:
-      return 0x4080ff;
+      return 0x4080ff; // 默认蓝色
   }
 }
 
 function calculateVehicleTransformAtTime(
   vehicle: VehicleElement,
   currentTime: number
-): { position: THREE.Vector3; rotation: THREE.Euler } {
+): { position: THREE.Vector3; rotation: THREE.Euler; visible: boolean } {
   // If no trajectory, use static position
   if (!vehicle.trajectory || vehicle.trajectory.length === 0) {
     return {
       position: vehicle.position.clone(),
-      rotation: vehicle.rotation.clone()
+      rotation: vehicle.rotation.clone(),
+      visible: true
     };
   }
   
   // Calculate position along trajectory based on time
   const totalTime = 10; // Assume 10 second trajectory
-  const progress = MathUtils.clamp(currentTime / totalTime, 0, 1);
+  const progress = THREE.MathUtils.clamp(currentTime / totalTime, 0, 1);
   const trajectoryIndex = progress * (vehicle.trajectory.length - 1);
   
   if (trajectoryIndex >= vehicle.trajectory.length - 1) {
     return {
       position: vehicle.trajectory[vehicle.trajectory.length - 1].clone(),
-      rotation: vehicle.rotation.clone()
+      rotation: vehicle.rotation.clone(),
+      visible: true
     };
   }
   
@@ -491,5 +493,5 @@ function calculateVehicleTransformAtTime(
   const nextPoint = vehicle.trajectory[nextIndex];
   const position = currentPoint.clone().lerp(nextPoint, t);
   
-  return { position, rotation: vehicle.rotation.clone() };
+  return { position, rotation: vehicle.rotation.clone(), visible: true };
 }

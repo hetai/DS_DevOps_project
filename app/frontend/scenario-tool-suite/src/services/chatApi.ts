@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://192.168.0.193:8080';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';

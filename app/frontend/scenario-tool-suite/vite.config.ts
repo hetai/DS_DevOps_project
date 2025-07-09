@@ -29,4 +29,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: [
+      'three',
+      'three/examples/jsm/loaders/GLTFLoader',
+      '@react-three/fiber',
+      '@react-three/drei'
+    ]
+  }
 });
