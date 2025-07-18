@@ -30,6 +30,7 @@ services:
     ports:
       - 8008:80
       - 8081:8080
+      # test3 
     volumes:
       - "./traefik.dev.toml:/etc/traefik/traefik.toml"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
