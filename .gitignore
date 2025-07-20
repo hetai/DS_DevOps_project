@@ -133,6 +133,7 @@ app/frontend/scenario-tool-suite/out
 # Backend specific
 app/backend/openscenario-api-service/.env
 app/backend/openscenario-api-service/*.log
+app/backend/openscenario-api-service/myenv/
 
 # Data directories
 *.xosc

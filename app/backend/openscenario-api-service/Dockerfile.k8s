@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies (use minimal requirements for K8s)
-COPY requirements-minimal.txt ./requirements.txt
+# Install Python dependencies (use production requirements for K8s)
+COPY requirements-production.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code

@@ -1,0 +1,46 @@
+# Production requirements based on working virtual environment
+# Core FastAPI dependencies (verified working versions)
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+pydantic==1.10.12
+
+# OpenAI and AI dependencies
+openai==1.97.0
+
+# Monitoring and metrics
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.1.0
+psutil==7.0.0
+
+# HTTP and networking
+httpx==0.28.1
+requests==2.32.4
+
+# AI/ML and RAG dependencies
+numpy==1.24.3
+pandas==2.0.3
+scikit-learn==1.3.0
+chromadb==0.4.22
+sentence-transformers==2.2.2
+lxml==4.9.3
+
+# PyTorch (CPU-only for container optimization)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1+cpu
+
+# Scenario generation
+scenariogeneration==0.14.0
+
+# Additional dependencies for stability
+anyio==4.5.2
+certifi==2025.7.14
+click==8.1.8
+distro==1.9.0
+h11==0.16.0
+httpcore==1.0.9
+idna==3.10
+sniffio==1.3.1
+starlette==0.36.3
+tqdm==4.67.1
+typing_extensions==4.13.2
