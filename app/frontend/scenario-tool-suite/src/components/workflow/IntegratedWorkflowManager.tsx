@@ -80,7 +80,7 @@ export interface IntegratedWorkflowContextType {
 }
 
 // API configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://192.168.0.193:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Extended reducer for integrated workflow
 const integratedWorkflowReducer = (state: WorkflowState, action: IntegratedWorkflowAction): WorkflowState => {

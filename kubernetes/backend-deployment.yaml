@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ds-devops-backend
+  namespace: ds-devops
+  labels:
+    app: ds-devops-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ds-devops-backend
+  template:
+    metadata:
+      labels:
+        app: ds-devops-backend
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: backend
+        image: ghcr.io/hetai/ds-devops-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: PORT
+          value: "8080"
+        - name: PYTHONPATH
+          value: "/app"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-api-key
+              key: OPENAI_API_KEY
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5

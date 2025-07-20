@@ -41,8 +41,10 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "${var.environment}-public-subnet-${count.index + 1}"
-    Environment = var.environment
+    Name                                        = "${var.environment}-public-subnet-${count.index + 1}"
+    Environment                                 = var.environment
+    "kubernetes.io/role/elb"                   = "1"
+    "kubernetes.io/cluster/${var.environment}-eks-cluster" = "shared"
   }
 }
 
@@ -54,8 +56,10 @@ resource "aws_subnet" "private" {
   availability_zone = var.availability_zones[count.index]
 
   tags = {
-    Name        = "${var.environment}-private-subnet-${count.index + 1}"
-    Environment = var.environment
+    Name                                        = "${var.environment}-private-subnet-${count.index + 1}"
+    Environment                                 = var.environment
+    "kubernetes.io/role/internal-elb"          = "1"
+    "kubernetes.io/cluster/${var.environment}-eks-cluster" = "shared"
   }
 }
 
@@ -111,17 +115,17 @@ resource "aws_route_table" "private" {
 }
 
 # Associate Route Tables with Subnets
-# resource "aws_route_table_association" "public" {
-#   count          = length(var.public_subnet_cidrs)
-#   subnet_id      = aws_subnet.public[count.index].id
-#   route_table_id = aws_route_table.public.id
-# }
+resource "aws_route_table_association" "public" {
+  count          = length(var.public_subnet_cidrs)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
 
-# resource "aws_route_table_association" "private" {
-#   count          = length(var.private_subnet_cidrs)
-#   subnet_id      = aws_subnet.private[count.index].id
-#   route_table_id = aws_route_table.private.id
-# }
+resource "aws_route_table_association" "private" {
+  count          = length(var.private_subnet_cidrs)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
 
 # Create Security Groups
 
@@ -213,6 +217,35 @@ resource "aws_security_group" "db" {
 
   tags = {
     Name        = "${var.environment}-db-sg"
+    Environment = var.environment
+  }
+}
+
+# EKS Cluster Security Group
+resource "aws_security_group" "eks_cluster" {
+  name        = "${var.environment}-eks-cluster-sg"
+  description = "Security group for the EKS cluster control plane"
+  vpc_id      = local.vpc_id
+
+  # Allow HTTPS communication with EKS cluster API server
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow HTTPS access to EKS cluster API"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name        = "${var.environment}-eks-cluster-sg"
     Environment = var.environment
   }
 }

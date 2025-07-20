@@ -66,8 +66,8 @@ class LaneChangeAction(BaseModel):
 
 class Action(BaseModel):
     type: Literal["speed", "lane_change", "teleport"] = Field(..., description="Action type")
-    speed_action: Optional[SpeedAction] = Field(None, description="Speed action parameters")
-    lane_change_action: Optional[LaneChangeAction] = Field(None, description="Lane change parameters")
+    speed_action: Optional['SpeedAction'] = Field(None, description="Speed action parameters")
+    lane_change_action: Optional['LaneChangeAction'] = Field(None, description="Lane change parameters")
     delay: float = Field(default=0.0, description="Action start delay in seconds")
 
 class Condition(BaseModel):

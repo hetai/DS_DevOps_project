@@ -3,7 +3,7 @@
 # AWS Region
 aws_region      = "eu-west-3"
 environment     = "dev"
-existing_vpc_id = "vpc-0e1082add7f64af26"
+existing_vpc_id = ""
 
 
 # Default Tags

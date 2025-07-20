@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ds-devops
+  labels:
+    name: ds-devops
+    app: ds-devops-project
