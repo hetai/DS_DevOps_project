@@ -22,7 +22,7 @@ import tempfile
 import json
 from unittest.mock import patch, Mock
 
-from app.ai_service import ai_service
+from app.ai_service_working import ai_service
 from app.scenario_generator import scenario_generator
 from app.validation_service import validation_service
 from app.rag_service import rag_service

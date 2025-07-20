@@ -41,14 +41,14 @@ export interface IntegratedWorkflowRequest extends WorkflowRequest {
 }
 
 export interface IntegratedWorkflowResponse extends WorkflowResponse {
-  visualization_metadata?: {
+  visualization_metadata: {
     road_network?: {
       roads: any[];
       junctions: any[];
     };
     vehicles?: any[];
     events?: any[];
-  };
+  } | null;
 }
 
 // Extended workflow actions
@@ -80,7 +80,7 @@ export interface IntegratedWorkflowContextType {
 }
 
 // API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Extended reducer for integrated workflow
 const integratedWorkflowReducer = (state: WorkflowState, action: IntegratedWorkflowAction): WorkflowState => {

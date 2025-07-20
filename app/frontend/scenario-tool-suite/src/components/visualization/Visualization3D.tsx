@@ -277,7 +277,7 @@ function SceneContent({
     
     try {
       // Use DataAdapter to get vehicles
-      const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults);
+      const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults, undefined);
       
       // If we have event processor and vehicle state manager, use enhanced vehicles
       if (state.eventProcessor && state.vehicleStateManager) {
@@ -396,6 +396,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
   scenarioFiles = {},
   validationResults = {},
   visualizationMetadata,
+  scenarioDescription,
   className = '',
   onError,
 }) => {
@@ -472,7 +473,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
           
           // Use DataAdapter for initial conversion with enhanced error handling
           try {
-            const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults);
+            const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults, scenarioDescription);
             openDriveData = adaptedData.openDriveData;
             openScenarioData = adaptedData.openScenarioData;
             console.log('✅ DataAdapter conversion successful');
@@ -529,7 +530,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
             vehicleStateManager = new VehicleStateManager();
             
             // Get initial vehicles for state manager
-            const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults);
+            const adaptedData = DataAdapter.adaptScenarioData(scenarioFiles, validationResults, scenarioDescription);
             vehicleStateManager.initializeVehicles(adaptedData.vehicles);
             
             console.log('✅ Event processing system initialized successfully');

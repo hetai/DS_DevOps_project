@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface ValidationError {
   message: string;
@@ -20,7 +20,7 @@ export const validateOpenScenario = async (file: File): Promise<ValidationResult
   formData.append('file', file);
 
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/validate`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/validate`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

@@ -22,6 +22,9 @@ spec:
         image: ghcr.io/hetai/ds-devops-frontend:latest
         ports:
         - containerPort: 80
+        env:
+        - name: VITE_API_URL
+          value: "/api"
         resources:
           requests:
             cpu: 50m

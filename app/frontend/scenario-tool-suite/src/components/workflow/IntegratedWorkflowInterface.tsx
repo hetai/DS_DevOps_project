@@ -17,9 +17,9 @@ import { IntegratedWorkflowManager, useIntegratedWorkflow } from './IntegratedWo
 import { WorkflowProgressIndicator } from './WorkflowProgressIndicator';
 import { ScenarioStateTracker } from './ScenarioStateTracker';
 import { Visualization3D } from '../visualization/Visualization3D';
-import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
-import { Alert } from '../ui/Alert';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Alert } from '../ui/alert';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 export interface ScenarioState {
@@ -364,6 +364,7 @@ export const IntegratedWorkflowInterface: React.FC<IntegratedWorkflowInterfacePr
                 scenarioFiles={state.scenarioFiles}
                 validationResults={state.validationResults}
                 visualizationMetadata={state.visualizationMetadata}
+                scenarioDescription={undefined}
               />
               <div data-testid="validation-highlights" className="hidden">
                 {/* Validation highlights overlay */}

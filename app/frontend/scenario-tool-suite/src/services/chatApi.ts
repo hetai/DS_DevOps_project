@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -99,7 +99,7 @@ export const chatWithAI = async (
   sessionId?: string
 ): Promise<ChatResponse> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/chat`, {
+    const response = await axios.post(`${API_BASE_URL}/chat`, {
       message,
       conversation_history: conversationHistory,
       session_id: sessionId
@@ -118,7 +118,7 @@ export const generateScenario = async (
   outputFormat: string = '1.2'
 ): Promise<GenerationResponse> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/generate`, {
+    const response = await axios.post(`${API_BASE_URL}/generate`, {
       parameters,
       generate_variations: generateVariations,
       output_format: outputFormat
@@ -133,7 +133,7 @@ export const generateScenario = async (
 
 export const getApiStatus = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/status`);
+    const response = await axios.get(`${API_BASE_URL}/status`);
     return response.data;
   } catch (error) {
     console.error('Error getting API status:', error);
@@ -147,7 +147,7 @@ export const getApiStatus = async () => {
 
 export const searchScenarios = async (query: string, limit: number = 5) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/scenarios/search`, {
+    const response = await axios.get(`${API_BASE_URL}/scenarios/search`, {
       params: { query, limit }
     });
     return response.data;

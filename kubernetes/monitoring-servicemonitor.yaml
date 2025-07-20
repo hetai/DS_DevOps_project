@@ -1,0 +1,180 @@
+---
+# ServiceMonitor for DS DevOps Backend
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ds-devops-backend
+  namespace: monitoring
+  labels:
+    app: ds-devops-backend
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+    - ds-devops
+  selector:
+    matchLabels:
+      app: ds-devops-backend
+  endpoints:
+  - port: "8080"
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+  - port: "8080"
+    path: /health
+    interval: 30s
+    scrapeTimeout: 5s
+
+---
+# ServiceMonitor for DS DevOps Frontend
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ds-devops-frontend
+  namespace: monitoring
+  labels:
+    app: ds-devops-frontend
+    release: prometheus
+spec:
+  namespaceSelector:
+    matchNames:
+    - ds-devops
+  selector:
+    matchLabels:
+      app: ds-devops-frontend
+  endpoints:
+  - port: "80"
+    path: /nginx_status
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ServiceMonitor for Loki
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loki
+  namespace: monitoring
+  labels:
+    app: loki
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: loki
+  endpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ServiceMonitor for Promtail
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: promtail
+  namespace: monitoring
+  labels:
+    app: promtail
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: promtail
+  endpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ServiceMonitor for Tempo
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tempo
+  namespace: monitoring
+  labels:
+    app: tempo
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: tempo
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# Additional PrometheusRule for DS DevOps alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ds-devops-alerts
+  namespace: monitoring
+  labels:
+    app: ds-devops
+    release: prometheus
+spec:
+  groups:
+  - name: ds-devops.rules
+    rules:
+    - alert: DSDevOpsBackendDown
+      expr: up{job="ds-devops-backend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "DS DevOps Backend is down"
+        description: "DS DevOps Backend has been down for more than 1 minute."
+    
+    - alert: DSDevOpsFrontendDown
+      expr: up{job="ds-devops-frontend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "DS DevOps Frontend is down"
+        description: "DS DevOps Frontend has been down for more than 1 minute."
+    
+    - alert: DSDevOpsHighErrorRate
+      expr: |
+        (
+          rate(http_requests_total{job="ds-devops-backend",status=~"5.."}[5m]) /
+          rate(http_requests_total{job="ds-devops-backend"}[5m])
+        ) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High error rate on DS DevOps Backend"
+        description: "Error rate is {{ $value | humanizePercentage }} for DS DevOps Backend."
+    
+    - alert: DSDevOpsHighMemoryUsage
+      expr: |
+        (
+          container_memory_working_set_bytes{namespace="ds-devops",container!="POD",container!=""} /
+          container_spec_memory_limit_bytes{namespace="ds-devops",container!="POD",container!=""} * 100
+        ) > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage in DS DevOps application"
+        description: "Memory usage is above 80% for container {{ $labels.container }} in pod {{ $labels.pod }}."
+    
+    - alert: DSDevOpsHighCPUUsage
+      expr: |
+        (
+          rate(container_cpu_usage_seconds_total{namespace="ds-devops",container!="POD",container!=""}[5m]) /
+          container_spec_cpu_quota{namespace="ds-devops",container!="POD",container!=""} * container_spec_cpu_period{namespace="ds-devops",container!="POD",container!=""} * 100
+        ) > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage in DS DevOps application"
+        description: "CPU usage is above 80% for container {{ $labels.container }} in pod {{ $labels.pod }}."

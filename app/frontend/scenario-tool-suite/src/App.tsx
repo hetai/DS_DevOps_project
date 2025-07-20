@@ -71,14 +71,14 @@ function WorkflowResultsViewer({ workflows, onNavigateToPlayer, onNavigateToVali
   const loadWorkflowDetails = async (sessionId: string) => {
     try {
       // Load files
-      const filesResponse = await fetch(`http://localhost:8080/api/workflow/${sessionId}/files`);
+      const filesResponse = await fetch(`/api/workflow/${sessionId}/files`);
       if (filesResponse.ok) {
         const filesData = await filesResponse.json();
         setWorkflowFiles(prev => ({ ...prev, [sessionId]: filesData }));
       }
 
       // Load validation results
-      const validationResponse = await fetch(`http://localhost:8080/api/workflow/${sessionId}/validation`);
+      const validationResponse = await fetch(`/api/workflow/${sessionId}/validation`);
       if (validationResponse.ok) {
         const validationData = await validationResponse.json();
         setWorkflowValidation(prev => ({ ...prev, [sessionId]: validationData }));
@@ -392,7 +392,7 @@ function AIScenarioGenerator() {
     setCurrentMessage('');
     
     try {
-      const response = await fetch('http://localhost:8080/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -450,7 +450,7 @@ function AIScenarioGenerator() {
       console.error('Chat connection error:', error);
       const connectionErrorMessage = {
         type: 'system',
-        content: `❌ Connection error: ${error.message}. Please ensure the backend is running at http://localhost:8080`,
+        content: `❌ Connection error: ${error.message}. Please ensure the backend is running`,
         timestamp: new Date().toISOString()
       };
       setChatMessages(prev => [...prev, connectionErrorMessage]);
@@ -466,71 +466,102 @@ function AIScenarioGenerator() {
     localStorage.removeItem('chatMessages');
   };
 
-  // Enhanced scenario description extraction with multiple strategies
+  // Enhanced scenario description extraction with improved strategies
   const extractScenarioFromConversation = () => {
     if (!chatMessages.length) return description;
     
     const aiMessages = chatMessages.filter(msg => msg.type === 'assistant');
     if (!aiMessages.length) return extractedParameters?.description || description;
     
-    // Strategy 1: Find the most recent comprehensive summary
+    // Strategy 1: Find the most recent comprehensive summary (improved keywords)
     const summaryMessage = aiMessages
       .slice()
       .reverse()
       .find(msg => 
-        msg.content.length > 150 && 
-        (msg.content.toLowerCase().includes('scenario summary') ||
+        msg.content.length > 100 && // Lowered threshold from 150
+        (msg.content.toLowerCase().includes('场景摘要') ||
+         msg.content.toLowerCase().includes('scenario summary') ||
+         msg.content.toLowerCase().includes('这是一个') ||
          msg.content.toLowerCase().includes('here\'s what we have') ||
          msg.content.toLowerCase().includes('based on our conversation') ||
-         msg.content.toLowerCase().includes('the scenario you described'))
+         msg.content.toLowerCase().includes('the scenario you described') ||
+         msg.content.toLowerCase().includes('场景描述') ||
+         msg.content.toLowerCase().includes('总结一下') ||
+         msg.content.toLowerCase().includes('综合来看'))
       );
     
     if (summaryMessage) {
       return summaryMessage.content;
     }
     
-    // Strategy 2: Find the longest comprehensive response
+    // Strategy 2: Find the longest comprehensive response (lowered threshold)
     const comprehensiveMessage = aiMessages
       .slice()
       .reverse()
       .find(msg => 
-        msg.content.length > 200 && 
-        (msg.content.toLowerCase().includes('scenario') || 
+        msg.content.length > 80 && // Lowered threshold from 200
+        (msg.content.toLowerCase().includes('场景') || 
+         msg.content.toLowerCase().includes('scenario') || 
          msg.content.toLowerCase().includes('situation') ||
          msg.content.toLowerCase().includes('description') ||
+         msg.content.toLowerCase().includes('车辆') ||
          msg.content.toLowerCase().includes('vehicle') ||
+         msg.content.toLowerCase().includes('道路') ||
          msg.content.toLowerCase().includes('road') ||
-         msg.content.toLowerCase().includes('driving'))
+         msg.content.toLowerCase().includes('驾驶') ||
+         msg.content.toLowerCase().includes('driving') ||
+         msg.content.toLowerCase().includes('测试') ||
+         msg.content.toLowerCase().includes('test'))
       );
     
     if (comprehensiveMessage) {
       return comprehensiveMessage.content;
     }
     
-    // Strategy 3: Combine multiple relevant messages
+    // Strategy 3: Combine multiple relevant messages (improved and expanded)
     const relevantMessages = aiMessages
       .filter(msg => 
-        msg.content.length > 50 &&
-        (msg.content.toLowerCase().includes('scenario') ||
+        msg.content.length > 20 && // Lowered threshold from 50
+        (msg.content.toLowerCase().includes('场景') ||
+         msg.content.toLowerCase().includes('scenario') ||
+         msg.content.toLowerCase().includes('车辆') ||
          msg.content.toLowerCase().includes('vehicle') ||
+         msg.content.toLowerCase().includes('道路') ||
          msg.content.toLowerCase().includes('road') ||
+         msg.content.toLowerCase().includes('速度') ||
          msg.content.toLowerCase().includes('speed') ||
-         msg.content.toLowerCase().includes('test'))
+         msg.content.toLowerCase().includes('测试') ||
+         msg.content.toLowerCase().includes('test') ||
+         msg.content.toLowerCase().includes('超车') ||
+         msg.content.toLowerCase().includes('overtaking') ||
+         msg.content.toLowerCase().includes('制动') ||
+         msg.content.toLowerCase().includes('brake') ||
+         msg.content.toLowerCase().includes('aeb') ||
+         msg.content.toLowerCase().includes('跟车') ||
+         msg.content.toLowerCase().includes('following'))
       )
-      .slice(-3); // Take last 3 relevant messages
+      .slice(-5); // Take last 5 relevant messages instead of 3
     
     if (relevantMessages.length > 0) {
       return relevantMessages.map(msg => msg.content).join('\n\n');
     }
     
-    // Strategy 4: Use the last substantial AI message
+    // Strategy 4: Use the last substantial AI message (lowered threshold)
     const lastSubstantialMessage = aiMessages
       .slice()
       .reverse()
-      .find(msg => msg.content.length > 100);
+      .find(msg => msg.content.length > 30); // Lowered threshold from 100
     
     if (lastSubstantialMessage) {
       return lastSubstantialMessage.content;
+    }
+    
+    // Strategy 5: Combine all AI messages if individual messages are short
+    if (aiMessages.length > 0) {
+      const allAiContent = aiMessages.map(msg => msg.content).join(' ');
+      if (allAiContent.length > 50) {
+        return allAiContent;
+      }
     }
     
     // Final fallback to extracted parameters or current description
@@ -560,7 +591,7 @@ function AIScenarioGenerator() {
   // Navigation helper functions
   const navigateToPlayerWithFiles = async (sessionId: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/workflow/${sessionId}/files`);
+      const response = await fetch(`/api/workflow/${sessionId}/files`);
       if (response.ok) {
         const data = await response.json();
         sessionStorage.setItem('loadedScenarioFiles', JSON.stringify(data.files));
@@ -575,7 +606,7 @@ function AIScenarioGenerator() {
 
   const navigateToValidatorWithFiles = async (sessionId: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/workflow/${sessionId}/files`);
+      const response = await fetch(`/api/workflow/${sessionId}/files`);
       if (response.ok) {
         const data = await response.json();
         sessionStorage.setItem('loadedScenarioFiles', JSON.stringify(data.files));
@@ -630,7 +661,7 @@ function AIScenarioGenerator() {
     simulateStepProgress();
 
     try {
-      const response = await fetch('http://localhost:8080/api/workflow/complete', {
+      const response = await fetch('/api/workflow/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -703,7 +734,7 @@ function AIScenarioGenerator() {
       console.error('Workflow connection error:', error);
       const connectionErrorMessage = {
         type: 'system',
-        content: `❌ Connection error: ${error.message}. Please ensure the backend is running at http://localhost:8080`,
+        content: `❌ Connection error: ${error.message}. Please ensure the backend is running`,
         timestamp: new Date().toISOString()
       };
       setChatMessages(prev => [...prev, connectionErrorMessage]);
@@ -1035,7 +1066,7 @@ function ScenarioPlayer() {
   // Load validation results for auto-loaded session
   const loadValidationResults = async (sessionId: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/workflow/${sessionId}/validation`);
+      const response = await fetch(`/api/workflow/${sessionId}/validation`);
       if (response.ok) {
         const data = await response.json();
         setValidationResults(data.validation_results);
@@ -1263,6 +1294,7 @@ function ScenarioPlayer() {
               <Visualization3D 
                 scenarioFiles={loadedFiles}
                 validationResults={validationResults}
+                scenarioDescription={undefined}
                 className="w-full h-full"
                 onError={(error) => console.error('3D Visualization error:', error)}
               />
@@ -1330,7 +1362,7 @@ function ScenarioValidator() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(`http://localhost:8080/api/workflow/${sessionId}/validation`, {
+      const response = await fetch(`/api/workflow/${sessionId}/validation`, {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
@@ -1403,7 +1435,7 @@ function ScenarioValidator() {
     
     try {
       // Try to get file information first
-      const filesResponse = await fetch(`http://localhost:8080/api/workflow/${sessionId}/files`);
+      const filesResponse = await fetch(`/api/workflow/${sessionId}/files`);
       let fileNames: string[] = [];
       
       if (filesResponse.ok) {

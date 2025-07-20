@@ -183,6 +183,7 @@ export default function Visualization3DTest() {
                 <Visualization3D
                   scenarioFiles={sampleScenarioFiles}
                   validationResults={{}}
+                  scenarioDescription="Test scenario with ego vehicle on a straight road"
                   className="w-full h-full"
                   onError={handleError}
                 />

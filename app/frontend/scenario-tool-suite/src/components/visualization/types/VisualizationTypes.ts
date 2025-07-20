@@ -8,6 +8,7 @@ export interface Visualization3DProps {
   scenarioFiles?: Record<string, string>;
   validationResults?: Record<string, any>;
   visualizationMetadata?: VisualizationMetadata;
+  scenarioDescription?: string;
   className?: string;
   onError?: (error: string) => void;
 }

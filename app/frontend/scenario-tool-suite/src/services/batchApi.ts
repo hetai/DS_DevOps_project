@@ -5,7 +5,7 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Types for batch generation
 export interface ParameterRange {
@@ -104,7 +104,7 @@ export const generateBatchScenarios = async (
   config: BatchGenerationConfig
 ): Promise<BatchGenerationResult> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/generate`, config, {
+    const response = await axios.post(`${API_BASE_URL}/batch/generate`, config, {
       timeout: 300000, // 5 minutes timeout for large batches
     });
 
@@ -134,7 +134,7 @@ export const generateParameterVariations = async (
   variationConfig: VariationConfig
 ): Promise<{ success: boolean; variations: Record<string, any>[] }> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/variations`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/variations`, {
       base_params: baseParams,
       variation_config: variationConfig
     });
@@ -154,7 +154,7 @@ export const generateNCAPTestVariations = async (
   testType: 'AEB' | 'LSS' | 'SAS' | 'OD'
 ): Promise<NCAPGenerationResult> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/ncap`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/ncap`, {
       base_params: baseParams,
       test_type: testType
     });
@@ -175,7 +175,7 @@ export const generateFromTemplate = async (
   maxCombinations?: number
 ): Promise<TemplateGenerationResult> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/template`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/template`, {
       template,
       template_variables: templateVariables,
       max_combinations: maxCombinations
@@ -193,7 +193,7 @@ export const generateFromTemplate = async (
  */
 export const getBatchStatus = async (sessionId: string): Promise<BatchStatus> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/batch/status/${sessionId}`);
+    const response = await axios.get(`${API_BASE_URL}/batch/status/${sessionId}`);
     return response.data;
   } catch (error) {
     console.error('Error getting batch status:', error);
@@ -212,7 +212,7 @@ export const downloadBatchResults = async (
   format: 'zip' | 'tar' = 'zip'
 ): Promise<Blob> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/download`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/download`, {
       results,
       format
     }, {
@@ -231,7 +231,7 @@ export const downloadBatchResults = async (
  */
 export const cancelBatchGeneration = async (sessionId: string): Promise<void> => {
   try {
-    await axios.post(`${API_BASE_URL}/api/batch/cancel/${sessionId}`);
+    await axios.post(`${API_BASE_URL}/batch/cancel/${sessionId}`);
   } catch (error) {
     console.error('Error cancelling batch generation:', error);
     throw new Error('Failed to cancel batch generation.');
@@ -243,7 +243,7 @@ export const cancelBatchGeneration = async (sessionId: string): Promise<void> =>
  */
 export const getAvailableTemplates = async (): Promise<{ templates: Array<{ id: string; name: string; description: string; variables: string[] }> }> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/batch/templates`);
+    const response = await axios.get(`${API_BASE_URL}/batch/templates`);
     return response.data;
   } catch (error) {
     console.error('Error getting templates:', error);
@@ -258,7 +258,7 @@ export const validateTemplate = async (
   template: Record<string, any>
 ): Promise<{ valid: boolean; errors: string[]; variables: string[] }> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/template/validate`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/template/validate`, {
       template
     });
     return response.data;
@@ -280,7 +280,7 @@ export const saveTemplate = async (
   template: Record<string, any>
 ): Promise<{ success: boolean; template_id?: string; error?: string }> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/batch/templates`, {
+    const response = await axios.post(`${API_BASE_URL}/batch/templates`, {
       name,
       template
     });

@@ -14,10 +14,67 @@ import {
 
 export class DataAdapter {
   /**
+   * Extract scenario description from OpenSCENARIO files
+   */
+  static extractScenarioDescription(scenarioFiles: Record<string, string>): string {
+    for (const [filename, content] of Object.entries(scenarioFiles)) {
+      if (filename.endsWith('.xosc')) {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(content, 'application/xml');
+          const header = doc.querySelector('FileHeader');
+          const description = header?.getAttribute('description') || '';
+          if (description) {
+            console.log('Extracted scenario description:', description);
+            return description;
+          }
+        } catch (error) {
+          console.warn('Failed to extract scenario description:', error);
+        }
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Determine scenario type from description
+   */
+  static determineScenarioType(description: string): string {
+    const desc = description.toLowerCase();
+    
+    if (desc.includes('超车') || desc.includes('overtaking') || desc.includes('lane change') || desc.includes('变道')) {
+      return 'overtaking';
+    }
+    if (desc.includes('aeb') || desc.includes('紧急制动') || desc.includes('emergency brake') || desc.includes('制动')) {
+      return 'aeb';
+    }
+    if (desc.includes('跟车') || desc.includes('following') || desc.includes('car following')) {
+      return 'following';
+    }
+    if (desc.includes('交叉口') || desc.includes('intersection') || desc.includes('junction')) {
+      return 'intersection';
+    }
+    
+    return 'default';
+  }
+
+  /**
    * Convert simple scenario data to vehicle elements with realistic trajectories
    */
-  static convertToVehicleElements(scenarioFiles: Record<string, string>): VehicleElement[] {
+  static convertToVehicleElements(
+    scenarioFiles: Record<string, string>, 
+    scenarioDescription?: string
+  ): VehicleElement[] {
     const vehicles: VehicleElement[] = [];
+    
+    // Extract scenario description if not provided
+    const actualScenarioDescription = scenarioDescription || this.extractScenarioDescription(scenarioFiles);
+    const scenarioType = this.determineScenarioType(actualScenarioDescription);
+    
+    console.log('Processing scenario:', {
+      description: actualScenarioDescription,
+      type: scenarioType
+    });
     
     // Try to extract vehicle data from OpenSCENARIO content
     for (const [filename, content] of Object.entries(scenarioFiles)) {
@@ -48,8 +105,8 @@ export class DataAdapter {
               }
             }
             
-            // Generate realistic trajectory for animation
-            const trajectory = this.generateVehicleTrajectory(startPosition, index, 30); // 30 second duration
+            // Generate realistic trajectory for animation based on scenario context
+            const trajectory = this.generateVehicleTrajectory(startPosition, index, 30, actualScenarioDescription);
             
             vehicles.push({
               id: name,
@@ -74,7 +131,7 @@ export class DataAdapter {
       // Create multiple demo vehicles with different trajectories
       for (let i = 0; i < 3; i++) {
         const startPos = new THREE.Vector3(i * 20 - 20, 0, 1.0); // 将车辆放在道路上方1米处
-        const trajectory = this.generateVehicleTrajectory(startPos, i, 30);
+        const trajectory = this.generateVehicleTrajectory(startPos, i, 30, actualScenarioDescription);
         const isEgo = i === 0; // 第一个车辆设为自车
         
         console.log(`Creating vehicle ${i}: isEgo=${isEgo}, position:`, startPos);
@@ -98,88 +155,245 @@ export class DataAdapter {
   }
 
   /**
-   * Generate realistic vehicle trajectory for animation
+   * Generate realistic vehicle trajectory based on scenario context
    */
   static generateVehicleTrajectory(
     startPosition: THREE.Vector3, 
     vehicleIndex: number, 
-    duration: number
+    duration: number,
+    scenarioContext?: string
   ): Array<{ position: THREE.Vector3; rotation: THREE.Euler; speed: number; timestamp: number }> {
     const trajectory = [];
     const timeStep = 0.1; // 10 FPS for smooth animation
     const totalSteps = Math.floor(duration / timeStep);
     
-    // Different trajectory patterns for different vehicles
-    const patterns = [
-      'straight',    // Vehicle 0: straight line
-      'circular',    // Vehicle 1: circular path
-      'figure8'      // Vehicle 2: figure-8 pattern
-    ];
-    
-    const pattern = patterns[vehicleIndex % patterns.length];
-    const baseSpeed = 10 + (vehicleIndex * 5); // Different speeds
+    // Determine trajectory type based on scenario context and vehicle role
+    const trajectoryType = this.determineTrajectoryType(scenarioContext, vehicleIndex);
+    const baseSpeed = this.calculateBaseSpeed(scenarioContext, vehicleIndex);
     
     for (let step = 0; step <= totalSteps; step++) {
       const t = step * timeStep;
       const normalizedTime = t / duration; // 0 to 1
       
-      let position: THREE.Vector3;
-      let rotation: THREE.Euler;
-      let speed: number;
+      const trajectoryPoint = this.calculateTrajectoryPoint(
+        startPosition, 
+        trajectoryType, 
+        normalizedTime, 
+        baseSpeed, 
+        t
+      );
       
-      switch (pattern) {
-        case 'straight':
-          position = new THREE.Vector3(
-            startPosition.x + (normalizedTime * 100), // Move 100 units forward
-            startPosition.y,
-            Math.max(startPosition.z, 1.0) // 保持在道路上方
-          );
-          rotation = new THREE.Euler(0, 0, 0);
-          speed = baseSpeed;
-          break;
-          
-        case 'circular':
-          const radius = 30;
-          const angle = normalizedTime * Math.PI * 2; // Full circle
-          position = new THREE.Vector3(
-            startPosition.x + Math.cos(angle) * radius,
-            startPosition.y + Math.sin(angle) * radius,
-            Math.max(startPosition.z, 1.0) // 保持在道路上方
-          );
-          rotation = new THREE.Euler(0, 0, angle + Math.PI / 2); // Face direction of movement
-          speed = baseSpeed;
-          break;
-          
-        case 'figure8':
-          const scale = 25;
-          const angle8 = normalizedTime * Math.PI * 4; // Two loops
-          position = new THREE.Vector3(
-            startPosition.x + Math.sin(angle8) * scale,
-            startPosition.y + Math.sin(angle8 * 2) * scale * 0.5,
-            Math.max(startPosition.z, 1.0) // 保持在道路上方
-          );
-          // Calculate rotation based on movement direction
-          const dx = Math.cos(angle8) * scale;
-          const dy = Math.cos(angle8 * 2) * scale;
-          rotation = new THREE.Euler(0, 0, Math.atan2(dy, dx));
-          speed = baseSpeed * 0.8;
-          break;
-          
-        default:
-          position = startPosition.clone();
-          rotation = new THREE.Euler(0, 0, 0);
-          speed = 0;
-      }
-      
-      trajectory.push({
-        position: position,
-        rotation: rotation,
-        speed: speed,
-        timestamp: t
-      });
+      trajectory.push(trajectoryPoint);
     }
     
     return trajectory;
+  }
+
+  /**
+   * Determine trajectory type based on scenario context
+   */
+  static determineTrajectoryType(scenarioContext?: string, vehicleIndex: number = 0): string {
+    if (!scenarioContext) {
+      return vehicleIndex === 0 ? 'ego_straight' : 'following';
+    }
+    
+    const context = scenarioContext.toLowerCase();
+    
+    // Check for specific scenario types
+    if (context.includes('超车') || context.includes('overtaking')) {
+      return vehicleIndex === 0 ? 'ego_overtaking' : 'target_straight';
+    }
+    
+    if (context.includes('aeb') || context.includes('制动') || context.includes('emergency brake')) {
+      return vehicleIndex === 0 ? 'ego_braking' : 'target_sudden_stop';
+    }
+    
+    if (context.includes('跟车') || context.includes('following') || context.includes('car following')) {
+      return vehicleIndex === 0 ? 'ego_following' : 'lead_vehicle';
+    }
+    
+    if (context.includes('变道') || context.includes('lane change')) {
+      return vehicleIndex === 0 ? 'ego_lane_change' : 'other_straight';
+    }
+    
+    if (context.includes('交叉口') || context.includes('intersection')) {
+      return vehicleIndex === 0 ? 'ego_intersection' : 'cross_traffic';
+    }
+    
+    // Default to straight line movement
+    return vehicleIndex === 0 ? 'ego_straight' : 'other_straight';
+  }
+
+  /**
+   * Calculate base speed based on scenario context
+   */
+  static calculateBaseSpeed(scenarioContext?: string, vehicleIndex: number = 0): number {
+    if (!scenarioContext) {
+      return 15; // Default speed
+    }
+    
+    const context = scenarioContext.toLowerCase();
+    
+    // Extract speed from context if mentioned
+    const speedMatch = context.match(/(\d+)\s*(?:km\/h|kmh|mph|m\/s)/);
+    if (speedMatch) {
+      const extractedSpeed = parseInt(speedMatch[1]);
+      // Convert to m/s if needed (assuming km/h by default)
+      return context.includes('m/s') ? extractedSpeed : extractedSpeed / 3.6;
+    }
+    
+    // Scenario-specific speeds
+    if (context.includes('高速') || context.includes('highway')) {
+      return vehicleIndex === 0 ? 25 : 22; // ~90 km/h and ~80 km/h
+    }
+    
+    if (context.includes('城市') || context.includes('urban') || context.includes('city')) {
+      return vehicleIndex === 0 ? 14 : 12; // ~50 km/h and ~43 km/h
+    }
+    
+    if (context.includes('停车') || context.includes('parking') || context.includes('慢速')) {
+      return vehicleIndex === 0 ? 3 : 2; // Very slow
+    }
+    
+    // Default urban speed
+    return vehicleIndex === 0 ? 15 : 13; // ~54 km/h and ~47 km/h
+  }
+
+  /**
+   * Calculate trajectory point based on trajectory type
+   */
+  static calculateTrajectoryPoint(
+    startPosition: THREE.Vector3,
+    trajectoryType: string,
+    normalizedTime: number,
+    baseSpeed: number,
+    timestamp: number
+  ): { position: THREE.Vector3; rotation: THREE.Euler; speed: number; timestamp: number } {
+    let position: THREE.Vector3;
+    let rotation: THREE.Euler;
+    let speed: number;
+    
+    const distance = normalizedTime * baseSpeed * 30; // 30 seconds max duration
+    
+    switch (trajectoryType) {
+      case 'ego_straight':
+      case 'other_straight':
+      case 'target_straight':
+        position = new THREE.Vector3(
+          startPosition.x + distance,
+          startPosition.y,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed;
+        break;
+        
+      case 'ego_overtaking':
+        // Overtaking maneuver: move to left lane, then back
+        const overtakePhase = normalizedTime * 3; // 3 phases
+        let lateralOffset = 0;
+        
+        if (overtakePhase < 1) {
+          // Phase 1: Move to left lane
+          lateralOffset = (overtakePhase) * 3.5;
+        } else if (overtakePhase < 2) {
+          // Phase 2: Stay in left lane
+          lateralOffset = 3.5;
+        } else {
+          // Phase 3: Return to right lane
+          lateralOffset = 3.5 - ((overtakePhase - 2) * 3.5);
+        }
+        
+        position = new THREE.Vector3(
+          startPosition.x + distance,
+          startPosition.y + lateralOffset,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed * 1.2; // Slightly faster during overtaking
+        break;
+        
+      case 'ego_braking':
+        // Gradual deceleration
+        const brakingFactor = Math.max(0, 1 - (normalizedTime * 2)); // Brake harder over time
+        const brakingDistance = distance * (0.5 + brakingFactor * 0.5);
+        
+        position = new THREE.Vector3(
+          startPosition.x + brakingDistance,
+          startPosition.y,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed * brakingFactor;
+        break;
+        
+      case 'target_sudden_stop':
+        // Sudden stop after some distance
+        const stopTime = 0.3; // Stop at 30% of timeline
+        const stopDistance = normalizedTime <= stopTime ? 
+          (normalizedTime / stopTime) * baseSpeed * 10 : 
+          baseSpeed * 10;
+        
+        position = new THREE.Vector3(
+          startPosition.x + stopDistance,
+          startPosition.y,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = normalizedTime <= stopTime ? baseSpeed : 0;
+        break;
+        
+      case 'ego_following':
+        // Follow at safe distance
+        const followingDistance = distance * 0.8; // Slightly slower
+        
+        position = new THREE.Vector3(
+          startPosition.x + followingDistance,
+          startPosition.y,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed * 0.9;
+        break;
+        
+      case 'lead_vehicle':
+        // Lead vehicle maintains steady speed
+        position = new THREE.Vector3(
+          startPosition.x + distance + 20, // Start ahead
+          startPosition.y,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed;
+        break;
+        
+      case 'ego_lane_change':
+        // Simple lane change maneuver
+        const laneChangePhase = Math.min(normalizedTime * 2, 1); // Complete in first half
+        const laneOffset = laneChangePhase * 3.5; // Move to adjacent lane
+        
+        position = new THREE.Vector3(
+          startPosition.x + distance,
+          startPosition.y + laneOffset,
+          Math.max(startPosition.z, 1.0)
+        );
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = baseSpeed;
+        break;
+        
+      default:
+        // Fallback to stationary
+        position = startPosition.clone();
+        rotation = new THREE.Euler(0, 0, 0);
+        speed = 0;
+    }
+    
+    return {
+      position,
+      rotation,
+      speed,
+      timestamp
+    };
   }
 
   /**
@@ -478,8 +692,11 @@ export class DataAdapter {
   /**
    * Convert simple scenario files to ParsedOpenScenario
    */
-  static convertToParsedOpenScenario(scenarioFiles: Record<string, string>): ParsedOpenScenario | null {
-    const vehicles = this.convertToVehicleElements(scenarioFiles);
+  static convertToParsedOpenScenario(
+    scenarioFiles: Record<string, string>, 
+    scenarioDescription?: string
+  ): ParsedOpenScenario | null {
+    const vehicles = this.convertToVehicleElements(scenarioFiles, scenarioDescription);
     const timeline = this.convertToTimelineEvents(scenarioFiles);
     
     for (const [filename, content] of Object.entries(scenarioFiles)) {
@@ -553,13 +770,14 @@ export class DataAdapter {
    */
   static adaptScenarioData(
     scenarioFiles: Record<string, string>, 
-    validationResults: Record<string, any>
+    validationResults: Record<string, any>,
+    scenarioDescription?: string
   ) {
     return {
-      vehicles: this.convertToVehicleElements(scenarioFiles),
+      vehicles: this.convertToVehicleElements(scenarioFiles, scenarioDescription),
       timeline: this.convertToTimelineEvents(scenarioFiles),
       openDriveData: this.convertToParsedOpenDrive(scenarioFiles),
-      openScenarioData: this.convertToParsedOpenScenario(scenarioFiles),
+      openScenarioData: this.convertToParsedOpenScenario(scenarioFiles, scenarioDescription),
       validationIssues: this.convertToValidationIssues(validationResults)
     };
   }

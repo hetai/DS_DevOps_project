@@ -32,7 +32,7 @@ export type WorkflowStep =
   | 'validation'
   | 'visualization_prep';
 
-interface ScenarioParameters {
+export interface ScenarioParameters {
   scenario_name: string;
   description: string;
   road_network: {
@@ -71,6 +71,7 @@ export interface WorkflowRequest {
   parameters: ScenarioParameters;
   auto_validate?: boolean;
   prepare_visualization?: boolean;
+  validation_level?: string;
 }
 
 export interface WorkflowResponse {
@@ -163,7 +164,7 @@ interface WorkflowContextType {
 const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Workflow provider component
 interface WorkflowProviderProps {
@@ -234,6 +235,7 @@ export function WorkflowProvider({ children }: WorkflowProviderProps) {
         parameters,
         auto_validate: true,
         prepare_visualization: true,
+        validation_level: "enhanced",
       };
 
       const response: WorkflowResponse = await apiCall('/api/workflow/complete', {

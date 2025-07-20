@@ -7,6 +7,16 @@ import subprocess
 import tempfile
 import shutil
 
+# Configure SQLite for ChromaDB compatibility
+os.environ["CHROMA_DB_IMPL"] = "duckdb+parquet"
+try:
+    # Try to use pysqlite3 if available
+    import pysqlite3
+    import sys
+    sys.modules['sqlite3'] = pysqlite3
+except ImportError:
+    pass
+
 try:
     import chromadb
     from chromadb.config import Settings
@@ -32,15 +42,19 @@ class NCAPScenarioRAG:
             self.embedding_model = None
         
         # Initialize ChromaDB
-        if chromadb:
-            self.chroma_client = chromadb.PersistentClient(
-                path=str(self.data_dir / "chroma_db"),
-                settings=Settings(anonymized_telemetry=False)
-            )
-            self.collection = self.chroma_client.get_or_create_collection(
-                name="ncap_scenarios",
-                metadata={"description": "NCAP OpenSCENARIO scenarios for RAG"}
-            )
+        if chromadb is not None:
+            try:
+                # Use in-memory ChromaDB client for compatibility
+                self.chroma_client = chromadb.EphemeralClient()
+                self.collection = self.chroma_client.get_or_create_collection(
+                    name="ncap_scenarios",
+                    metadata={"description": "NCAP OpenSCENARIO scenarios for RAG"}
+                )
+                print("ChromaDB initialized successfully (in-memory mode)")
+            except Exception as e:
+                print(f"Warning: ChromaDB initialization failed: {e}")
+                self.chroma_client = None
+                self.collection = None
         else:
             self.chroma_client = None
             self.collection = None
