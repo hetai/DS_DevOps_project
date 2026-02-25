@@ -187,7 +187,6 @@
                 </div>
                 <div class="hidden md:flex space-x-8">
                     <a href="#hero" class="nav-link hover:text-blue-400 transition-colors">Overview</a>
-                    <a href="#demo" class="nav-link hover:text-blue-400 transition-colors">Live Demo</a>
                     <a href="#architecture" class="nav-link hover:text-blue-400 transition-colors">Architecture</a>
                     <a href="#comparison" class="nav-link hover:text-blue-400 transition-colors">Comparison</a>
                     <a href="#constraints" class="nav-link hover:text-blue-400 transition-colors">AWS & CI/CD</a>
@@ -206,7 +205,6 @@
         <div id="mobile-menu" class="hidden md:hidden glass">
             <div class="px-6 py-4 space-y-4">
                 <a href="#hero" class="block hover:text-blue-400 transition-colors">Overview</a>
-                <a href="#demo" class="block hover:text-blue-400 transition-colors">Live Demo</a>
                 <a href="#architecture" class="block hover:text-blue-400 transition-colors">Architecture</a>
                 <a href="#comparison" class="block hover:text-blue-400 transition-colors">Comparison</a>
                 <a href="#constraints" class="block hover:text-blue-400 transition-colors">AWS & CI/CD</a>
@@ -242,12 +240,9 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12 mb-8">
                     <div class="metric-card rounded-lg p-6 text-center card-hover">
                         <div class="text-3xl font-bold text-green-400 mb-2">✅</div>
-                        <div class="text-lg font-semibold mb-1">Fully Operational</div>
-                        <div class="text-sm text-gray-300">K3s cluster with 100% uptime</div>
-                        <div class="mt-2">
-                            <span id="system-status" class="inline-block w-3 h-3 rounded-full bg-green-500 pulse-dot mr-2"></span>
-                            <span class="text-sm status-online font-semibold">LIVE</span>
-                        </div>
+                        <div class="text-lg font-semibold mb-1">Validated Locally</div>
+                        <div class="text-sm text-gray-300">K3s cluster + full monitoring stack</div>
+                        <div class="text-sm mt-2 text-green-300 font-medium">K3s + Prometheus + Grafana</div>
                     </div>
                     
                     <div class="metric-card rounded-lg p-6 text-center card-hover">
@@ -274,138 +269,12 @@
                 
                 <!-- Call to Action -->
                 <div class="space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center">
-                    <a href="#demo" class="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-300 animate-glow">
-                        Experience Live Demo
+                    <a href="#architecture" class="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-300 animate-glow">
+                        Explore Architecture
                     </a>
-                    <a href="http://192.168.0.193/" target="_blank" class="inline-block border border-white/30 hover:border-white/60 px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-300 hover:bg-white/10">
-                        Visit Live System →
+                    <a href="https://github.com/hetai/DS_DevOps_project" target="_blank" class="inline-block border border-white/30 hover:border-white/60 px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-300 hover:bg-white/10">
+                        View on GitHub →
                     </a>
-                </div>
-                
-                <!-- System Health Indicator -->
-                <div class="mt-8 text-sm text-gray-300">
-                    <div id="live-status" class="inline-flex items-center space-x-2">
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span>Production system online at http://192.168.0.193/</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Live Demo Section -->
-    <section id="demo" class="py-20 bg-gray-800">
-        <div class="container mx-auto px-6">
-            <div class="section-fade text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold mb-6">
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">
-                        Live System Demonstration
-                    </span>
-                </h2>
-                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                    Experience the complete AI-powered workflow from natural language to ASAM standard files
-                </p>
-            </div>
-            
-            <!-- Demo Flow -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                <div class="section-fade">
-                    <div class="bg-gray-700/50 rounded-lg p-6 h-full">
-                        <h3 class="text-2xl font-bold mb-4 text-green-400">AI Chat Interface</h3>
-                        <p class="text-gray-300 mb-4">Interactive natural language processing with OpenAI GPT-4</p>
-                        
-                        <!-- Embedded Chat Demo -->
-                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
-                            <div class="text-sm text-gray-400 mb-2">Live AI Chat Integration:</div>
-                            <div class="space-y-2">
-                                <div class="bg-blue-600 text-white rounded-lg p-2 max-w-xs">
-                                    Create a highway overtaking scenario with two vehicles
-                                </div>
-                                <div class="bg-gray-600 text-white rounded-lg p-2 max-w-xs ml-auto">
-                                    I'll help you create that scenario. What speed should the ego vehicle travel?
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <a href="http://192.168.0.193/" target="_blank" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition-colors">
-                            Try Live Chat →
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="section-fade">
-                    <div class="bg-gray-700/50 rounded-lg p-6 h-full">
-                        <h3 class="text-2xl font-bold mb-4 text-blue-400">Real-Time Processing</h3>
-                        <p class="text-gray-300 mb-4">Watch AI extract parameters and generate ASAM files</p>
-                        
-                        <!-- Processing Steps -->
-                        <div class="space-y-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                                <span>Natural Language Understanding</span>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                                <span>RAG Knowledge Retrieval</span>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                                <span>ASAM File Generation</span>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                </div>
-                                <span>3D Visualization</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Live Demo Access -->
-            <div class="section-fade">
-                <div class="bg-gray-700/30 rounded-lg p-8 text-center">
-                    <h3 class="text-2xl font-bold mb-6 text-purple-400">Experience the Live System</h3>
-                    <p class="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
-                        Try the complete AI-powered scenario generation workflow with natural language processing, 
-                        real ASAM file generation, and 3D visualization.
-                    </p>
-                    <a href="http://192.168.0.193/" target="_blank" class="inline-block bg-purple-600 hover:bg-purple-700 px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
-                        🚀 Try Live Chat →
-                    </a>
-                    <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                        <div class="bg-gray-800 rounded-lg p-3">
-                            <div class="text-green-400 font-semibold">✅ Status: Online</div>
-                            <div class="text-gray-300">100% Uptime</div>
-                        </div>
-                        <div class="bg-gray-800 rounded-lg p-3">
-                            <div class="text-blue-400 font-semibold">⚡ Response: &lt; 50ms</div>
-                            <div class="text-gray-300">Real-time AI</div>
-                        </div>
-                        <div class="bg-gray-800 rounded-lg p-3">
-                            <div class="text-purple-400 font-semibold">🎯 3D Visualization</div>
-                            <div class="text-gray-300">Interactive rendering</div>
-                        </div>
-                        <div class="bg-gray-800 rounded-lg p-3">
-                            <div class="text-yellow-400 font-semibold">📁 File Generation</div>
-                            <div class="text-gray-300">Real ASAM files</div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -421,42 +290,37 @@
                     </span>
                 </h2>
                 <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                    Cloud-native design with proven cost optimization and production deployment
+                    Cloud-native design with proven cost optimization and production-ready infrastructure
                 </p>
             </div>
             
             <!-- Architecture Overview -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-                <!-- Current Deployment -->
+                <!-- Local K3s Deployment -->
                 <div class="section-fade">
                     <div class="bg-gradient-to-br from-green-900/30 to-green-800/30 rounded-lg p-8">
                         <h3 class="text-2xl font-bold mb-6 text-green-400 flex items-center">
-                            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse mr-3"></div>
-                            Current Production (K3s)
+                            Local K3s Deployment
                         </h3>
-                        
+
                         <div class="space-y-4">
                             <div class="flex justify-between items-center">
-                                <span class="text-gray-300">System Status:</span>
-                                <span class="text-green-400 font-semibold">✅ Fully Operational</span>
+                                <span class="text-gray-300">Environment:</span>
+                                <span class="text-green-400 font-semibold">✅ Validated Locally</span>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="text-gray-300">Access URL:</span>
-                                <a href="http://192.168.0.193/" target="_blank" class="text-blue-400 hover:text-blue-300">http://192.168.0.193/</a>
+                                <span class="text-gray-300">Orchestration:</span>
+                                <span class="text-green-400">K3s (Lightweight Kubernetes)</span>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="text-gray-300">Monitoring:</span>
-                                <a href="http://192.168.0.193:31120" target="_blank" class="text-blue-400 hover:text-blue-300">Grafana Dashboard</a>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-300">Uptime:</span>
-                                <span class="text-green-400">100%</span>
+                                <span class="text-gray-300">Monitoring Stack:</span>
+                                <span class="text-green-400">Prometheus + Grafana + Loki + Tempo</span>
                             </div>
                         </div>
-                        
+
                         <!-- K3s Architecture Components -->
                         <div class="mt-6">
-                            <h4 class="font-semibold mb-3 text-green-300">Deployed Components:</h4>
+                            <h4 class="font-semibold mb-3 text-green-300">K3s Components:</h4>
                             <div class="grid grid-cols-2 gap-2 text-sm">
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -762,13 +626,13 @@
                                     <td class="py-4 px-6 text-center">
                                         <span class="inline-flex items-center">
                                             <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                                            <span class="text-green-400 font-semibold">✅ Fully Operational</span>
+                                            <span class="text-green-400 font-semibold">✅ Validated Locally</span>
                                         </span>
                                     </td>
                                     <td class="py-4 px-6 text-center">
                                         <span class="inline-flex items-center">
-                                            <div class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
-                                            <span class="text-yellow-400 font-semibold">⏳ Pending Permissions</span>
+                                            <div class="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                                            <span class="text-blue-400 font-semibold">🚀 Ready to Deploy</span>
                                         </span>
                                     </td>
                                     <td class="py-4 px-6 text-center text-gray-400">Docker Compose, VM-based</td>
@@ -1006,14 +870,14 @@
                             </div>
                             
                             <div class="bg-gray-800 rounded-lg p-4">
-                                <div class="text-sm text-gray-400 mb-2">Deployment Time:</div>
-                                <div class="text-green-400 font-semibold">&lt;30 minutes once permissions resolved</div>
+                                <div class="text-sm text-gray-400 mb-2">Estimated Deploy Time:</div>
+                                <div class="text-green-400 font-semibold">&lt;30 minutes</div>
                             </div>
-                            
+
                             <div class="bg-gray-800 rounded-lg p-4">
-                                <div class="text-sm text-gray-400 mb-2">Alternative Solution:</div>
-                                <div class="text-blue-400 font-semibold">K3s production system operational</div>
-                                <div class="text-sm text-gray-400 mt-2">Equivalent functionality demonstrated</div>
+                                <div class="text-sm text-gray-400 mb-2">Local Validation:</div>
+                                <div class="text-blue-400 font-semibold">K3s local deployment</div>
+                                <div class="text-sm text-gray-400 mt-2">Equivalent architecture validated locally</div>
                             </div>
                         </div>
                     </div>
@@ -1046,11 +910,11 @@
                     
                     <div class="text-center">
                         <div class="text-lg text-gray-400 mb-4">
-                            Deployment ready pending permission upgrade from ReadOnlyAccess
+                            Infrastructure-as-code validated and ready for deployment
                         </div>
-                        <div class="inline-flex items-center space-x-2 text-yellow-400">
-                            <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                            <span class="font-semibold">Permission request in progress</span>
+                        <div class="inline-flex items-center space-x-2 text-green-400">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span class="font-semibold">Terraform plan successful — ready to apply</span>
                         </div>
                     </div>
                 </div>
@@ -1063,36 +927,10 @@
                         <svg class="w-6 h-6 mr-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path>
                         </svg>
-                        Jenkins CI/CD Pipeline - AWS Deployed
+                        Jenkins CI/CD Pipeline
                     </h3>
                     
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <!-- Jenkins Status -->
-                        <div class="bg-gray-800 rounded-lg p-6">
-                            <h4 class="text-lg font-semibold text-green-400 mb-4 flex items-center">
-                                <div class="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                                Production Status
-                            </h4>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-300">Deployment Status:</span>
-                                    <span class="text-green-400 font-semibold">✅ Live on AWS</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-300">Server Location:</span>
-                                    <span class="text-blue-400 font-mono text-sm">eu-west-3</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-300">Access URL:</span>
-                                    <a href="http://52.47.147.121:8080/" target="_blank" class="text-blue-400 hover:text-blue-300 transition-colors font-mono text-sm">52.47.147.121:8080</a>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-300">Pipeline Status:</span>
-                                    <span class="text-green-400 font-semibold">Ready for EKS Deployment</span>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <!-- Pipeline Configuration -->
                         <div class="bg-gray-800 rounded-lg p-6">
                             <h4 class="text-lg font-semibold text-blue-400 mb-4">Pipeline Configuration</h4>
@@ -1140,16 +978,6 @@
                         </div>
                     </div>
                     
-                    <!-- Jenkins Access -->
-                    <div class="mt-6 text-center">
-                        <a href="http://52.47.147.121:8080/" target="_blank" class="inline-flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg transition-colors">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
-                            </svg>
-                            <span>Access Jenkins Dashboard</span>
-                        </a>
-                        <div class="text-sm text-gray-400 mt-2">Live CI/CD pipeline management interface</div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1248,25 +1076,19 @@
                         </div>
                         
                         <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-purple-400">Live System Access</h4>
+                            <h4 class="text-lg font-semibold text-purple-400">Project Links</h4>
                             <div class="space-y-2">
-                                <a href="http://192.168.0.193/" target="_blank" class="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
+                                <a href="https://github.com/hetai/DS_DevOps_project" target="_blank" class="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
                                     </svg>
-                                    <span>Production System</span>
-                                </a>
-                                <a href="http://192.168.0.193:31120" target="_blank" class="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span>Grafana Monitoring</span>
+                                    <span>GitHub Repository</span>
                                 </a>
                                 <div class="flex items-center space-x-2 text-gray-400">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                                     </svg>
-                                    <span>AWS Deployment: Pending Permissions</span>
+                                    <span>AWS Deployment: Ready to deploy</span>
                                 </div>
                             </div>
                         </div>
@@ -1363,26 +1185,25 @@
                 
                 <!-- Quick Links -->
                 <div class="flex flex-wrap justify-center space-x-6 mb-6 text-sm">
-                    <a href="http://192.168.0.193/" target="_blank" class="text-blue-400 hover:text-blue-300">Live System</a>
-                    <a href="http://192.168.0.193:31120" target="_blank" class="text-blue-400 hover:text-blue-300">Monitoring</a>
-                    <a href="#hero" class="text-blue-400 hover:text-blue-300">Documentation</a>
+                    <a href="#architecture" class="text-blue-400 hover:text-blue-300">Architecture</a>
+                    <a href="#hero" class="text-blue-400 hover:text-blue-300">Overview</a>
                     <a href="https://github.com/hetai/DS_DevOps_project" target="_blank" class="text-blue-400 hover:text-blue-300">Source Code</a>
                 </div>
                 
-                <!-- System Status -->
+                <!-- Build Info -->
                 <div class="border-t border-gray-800 pt-6">
                     <div class="flex justify-center items-center space-x-6 text-sm">
                         <div class="flex items-center space-x-2">
-                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span class="text-green-400">System Online</span>
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span class="text-green-400">K3s Validated</span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                            <span class="text-yellow-400">AWS Ready</span>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span class="text-blue-400">AWS Ready</span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span class="text-blue-400">Monitoring Active</span>
+                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <span class="text-purple-400">48+ Tests Passing</span>
                         </div>
                     </div>
                 </div>
@@ -1436,26 +1257,6 @@
             observer.observe(el);
         });
 
-        // System health check (simulated)
-        function checkSystemHealth() {
-            fetch('http://192.168.0.193/')
-                .then(response => {
-                    const statusEl = document.getElementById('system-status');
-                    const liveStatusEl = document.getElementById('live-status');
-                    
-                    if (response.ok) {
-                        statusEl.className = 'inline-block w-3 h-3 rounded-full bg-green-500 pulse-dot mr-2';
-                        liveStatusEl.innerHTML = `
-                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span>Production system online at http://192.168.0.193/</span>
-                        `;
-                    }
-                })
-                .catch(() => {
-                    // Handle offline gracefully
-                    console.log('System check completed');
-                });
-        }
 
         // Initialize charts
         function initCharts() {
@@ -1531,19 +1332,15 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            checkSystemHealth();
             initCharts();
             initDragFunctionality();
-            
+
             // Add first section to visible immediately
             const heroSection = document.querySelector('#hero .section-fade');
             if (heroSection) {
                 heroSection.classList.add('visible');
             }
         });
-
-        // Periodic system health checks
-        setInterval(checkSystemHealth, 30000); // Check every 30 seconds
 
         // Image modal functionality
         let currentZoom = 1;
